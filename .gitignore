@@ -1,0 +1,11 @@
+.env
+.env.local
+__pycache__/
+.pytest_cache/
+.pip-cache/
+.venv/
+venv/
+node_modules/
+dist/
+.superpowers/
+DEPLOY_ENV.txt
