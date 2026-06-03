@@ -1,14 +1,20 @@
 from apscheduler.schedulers.background import BackgroundScheduler
+from fastapi import Request
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from config import FRONTEND_URL
 from database import is_supabase_configured
+from rate_limit import limiter
 from routers import reports, tasks
 from services.daily_report import generate_daily_reports
 from services.reminder import check_and_send_reminders
 
 app = FastAPI(title="AI Secretary API")
+app.state.limiter = limiter
 
 allowed_origins = [
     "http://localhost:5173",
@@ -26,6 +32,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "操作太频繁，请稍后再试"},
+    )
 
 app.include_router(tasks.router)
 app.include_router(reports.router)

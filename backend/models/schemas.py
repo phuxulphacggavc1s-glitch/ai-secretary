@@ -5,11 +5,11 @@ from pydantic import BaseModel, Field
 
 
 class TaskCreate(BaseModel):
-    raw_input: str = Field(min_length=1)
+    raw_input: str = Field(min_length=1, max_length=500)
 
 
 class TaskConfirm(BaseModel):
-    content: str = Field(min_length=1)
+    content: str = Field(min_length=1, max_length=500)
     category: str = "其他"
     remind_time: Optional[datetime] = None
     priority: int = Field(default=1, ge=1, le=3)

@@ -1,17 +1,24 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from auth import get_current_user
 from database import supabase
 from models.schemas import TaskConfirm, TaskCreate, TaskUpdate
+from rate_limit import limiter
 from services.ai_parser import parse_task
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
 
+async def get_rate_limited_user(request: Request, user=Depends(get_current_user)):
+    request.scope["user"] = user
+    return user
+
+
 @router.post("/parse")
-async def parse_only(body: TaskCreate, user=Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def parse_only(request: Request, body: TaskCreate, user=Depends(get_rate_limited_user)):
     result = parse_task(body.raw_input)
     return {"success": True, "parsed": result}
 

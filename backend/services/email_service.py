@@ -1,3 +1,5 @@
+from html import escape
+
 import resend
 
 from config import FROM_EMAIL, RESEND_API_KEY
@@ -12,6 +14,8 @@ def send_reminder_email(to_email: str, task_content: str, remind_time: str):
         print("Resend is not configured; skipped reminder email")
         return None
 
+    safe_task_content = escape(task_content)
+    safe_remind_time = escape(remind_time)
     resend.api_key = RESEND_API_KEY
     return resend.Emails.send(
         {
@@ -21,8 +25,8 @@ def send_reminder_email(to_email: str, task_content: str, remind_time: str):
             "html": f"""
             <div style="font-family: sans-serif; padding: 20px;">
                 <h2>你有一个待办提醒</h2>
-                <p style="font-size: 18px; color: #333;"><strong>{task_content}</strong></p>
-                <p style="color: #666;">提醒时间：{remind_time}</p>
+                <p style="font-size: 18px; color: #333;"><strong>{safe_task_content}</strong></p>
+                <p style="color: #666;">提醒时间：{safe_remind_time}</p>
                 <hr/>
                 <p style="color: #999; font-size: 12px;">来自 AI 秘书</p>
             </div>
@@ -36,6 +40,8 @@ def send_daily_report_email(to_email: str, report_content: str, report_date: str
         print("Resend is not configured; skipped daily report email")
         return None
 
+    safe_report_content = escape(report_content)
+    safe_report_date = escape(report_date)
     resend.api_key = RESEND_API_KEY
     return resend.Emails.send(
         {
@@ -44,8 +50,8 @@ def send_daily_report_email(to_email: str, report_content: str, report_date: str
             "subject": f"【AI秘书日报】{report_date} 每日总结",
             "html": f"""
             <div style="font-family: sans-serif; padding: 20px;">
-                <h2>今日总结 · {report_date}</h2>
-                <p style="font-size: 16px; line-height: 1.8; color: #333;">{report_content}</p>
+                <h2>今日总结 · {safe_report_date}</h2>
+                <p style="font-size: 16px; line-height: 1.8; color: #333;">{safe_report_content}</p>
                 <hr/>
                 <p style="color: #999; font-size: 12px;">来自 AI 秘书</p>
             </div>

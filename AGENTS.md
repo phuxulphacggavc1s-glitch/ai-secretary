@@ -203,6 +203,19 @@ create policy "Users can see own profile"
 
 ---
 
+## Data Access Iron Rule
+
+The backend uses `SUPABASE_SERVICE_KEY`, which bypasses Supabase RLS. Therefore every
+`select`, `update`, or `delete` query against `tasks`, `daily_reports`, or `users`
+must explicitly filter by the current user:
+- `tasks` / `daily_reports`: add `.eq("user_id", user.id)`
+- `users`: add `.eq("id", user.id)`
+
+Before adding any new database query, check this rule first. Never rely on RLS alone
+inside backend code that uses the service-role key.
+
+---
+
 ## Backend Implementation
 
 ### requirements.txt
