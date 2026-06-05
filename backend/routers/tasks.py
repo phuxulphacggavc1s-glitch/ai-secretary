@@ -1,10 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from auth import get_current_user
 from database import supabase
-from models.schemas import TaskConfirm, TaskCreate, TaskUpdate
+from models.schemas import CheckinBody, TaskConfirm, TaskCreate, TaskUpdate
 from rate_limit import limiter
 from services.ai_parser import parse_task
 
@@ -74,5 +75,61 @@ async def update_task(task_id: str, body: TaskUpdate, user=Depends(get_current_u
 
 @router.delete("/{task_id}")
 async def delete_task(task_id: str, user=Depends(get_current_user)):
-    supabase.table("tasks").delete().eq("id", task_id).eq("user_id", user.id).execute()
+    result = (
+        supabase.table("tasks")
+        .delete()
+        .eq("id", task_id)
+        .eq("user_id", user.id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Task not found")
     return {"success": True}
+
+
+@router.post("/{task_id}/checkin")
+async def checkin_task(task_id: str, body: CheckinBody, user=Depends(get_current_user)):
+    updates = {
+        "last_checkin_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if body.progress_note is not None:
+        updates["progress_note"] = body.progress_note
+    if body.status is not None:
+        updates["status"] = body.status
+    result = (
+        supabase.table("tasks")
+        .update(updates)
+        .eq("id", task_id)
+        .eq("user_id", user.id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"success": True, "task": result.data[0]}
+
+
+@router.post("/{task_id}/snooze")
+async def snooze_task(task_id: str, user=Depends(get_current_user)):
+    """把逾期提醒推迟到明天早上 8 点（当天不再烦你）"""
+    tz = ZoneInfo("Asia/Shanghai")
+    now = datetime.now(tz)
+    tomorrow_8am = datetime.combine(
+        now.date() + timedelta(days=1),
+        time(8, 0),
+        tzinfo=tz,
+    )
+    updates = {
+        "snooze_until": tomorrow_8am.isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = (
+        supabase.table("tasks")
+        .update(updates)
+        .eq("id", task_id)
+        .eq("user_id", user.id)
+        .execute()
+    )
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"success": True, "task": result.data[0]}
