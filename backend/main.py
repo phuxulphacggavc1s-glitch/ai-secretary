@@ -9,7 +9,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from config import FRONTEND_URL
 from database import is_supabase_configured
 from rate_limit import limiter
-from routers import reports, tasks
+from routers import reports, secretary, tasks
 from services.daily_report import generate_daily_reports
 from services.reminder import check_and_send_reminders
 
@@ -44,6 +44,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 app.include_router(tasks.router)
 app.include_router(reports.router)
+app.include_router(secretary.router)
 
 
 @app.get("/health")
