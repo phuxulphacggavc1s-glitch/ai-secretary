@@ -214,12 +214,13 @@ export default function Home() {
         />
       </div>
 
-      {parseOpen && parsed && (
+      {parsed && (
         <ParsePreview
+          open={parseOpen}
           parsed={parsed}
-          saving={saving}
+          loading={saving}
           onConfirm={handleCreate}
-          onClose={() => {
+          onCancel={() => {
             setParseOpen(false)
             setParsed(null)
           }}
