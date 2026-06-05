@@ -4,15 +4,19 @@ import TaskList from '../components/TaskList'
 import { useTasks } from '../hooks/useTasks'
 import { useMemo, useState } from 'react'
 
-const tabs = ['全部', '工作', '生活', '灵感', '财务', '学习', '已完成']
+const tabs = ['全部', '工作', '生活', '灵感', '财务', '学习', '进行中', '已完成']
 
 export default function Tasks() {
   const [tab, setTab] = useState('全部')
   const [keyword, setKeyword] = useState('')
   const params = tab === '已完成'
     ? { status: 'done', page_size: 50 }
-    : { category: tab, page_size: 50 }
-  const { tasks, loading, error, completeTask, removeTask } = useTasks(params)
+    : tab === '进行中'
+      ? { status: 'in_progress', page_size: 50 }
+      : tab === '全部'
+        ? { page_size: 50 }
+        : { category: tab, page_size: 50 }
+  const { tasks, loading, error, completeTask, beginTask, removeTask } = useTasks(params)
   const [busyId, setBusyId] = useState('')
   const [toast, setToast] = useState('')
 
@@ -50,6 +54,18 @@ export default function Tasks() {
     }
   }
 
+  const handleStart = async (id) => {
+    setBusyId(id)
+    try {
+      await beginTask(id)
+      showToast('已标记为进行中')
+    } catch {
+      showToast('操作失败，请重试')
+    } finally {
+      setBusyId('')
+    }
+  }
+
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-4 py-5">
       <header className="flex items-center gap-3">
@@ -66,7 +82,12 @@ export default function Tasks() {
 
       <div className="mt-5 flex items-center gap-2 rounded-md bg-white px-3 py-2 ring-1 ring-slate-200">
         <Search size={18} className="text-slate-400" />
-        <input value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索待办" className="w-full border-0 bg-transparent outline-none" />
+        <input
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+          placeholder="搜索待办"
+          className="w-full border-0 bg-transparent outline-none"
+        />
       </div>
 
       <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
@@ -88,8 +109,9 @@ export default function Tasks() {
         <TaskList
           tasks={filtered}
           loading={loading}
-          emptyText={keyword ? '没有匹配的待办' : '还没有待办，输入一句话开始吧'}
+          emptyText="没有找到相关任务"
           onComplete={handleComplete}
+          onStart={handleStart}
           onDelete={handleDelete}
           busyId={busyId}
         />

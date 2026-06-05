@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { deleteTask, listTasks, updateTask } from '../api'
+import { deleteTask, listTasks, startTask, updateTask } from '../api'
 
 export function useTasks(params = {}) {
   const [tasks, setTasks] = useState([])
@@ -28,10 +28,15 @@ export function useTasks(params = {}) {
     await fetchTasks()
   }
 
+  const beginTask = async (id) => {
+    await startTask(id)
+    await fetchTasks()
+  }
+
   const removeTask = async (id) => {
     await deleteTask(id)
     await fetchTasks()
   }
 
-  return { tasks, setTasks, loading, error, fetchTasks, completeTask, removeTask }
+  return { tasks, loading, error, fetchTasks, completeTask, beginTask, removeTask }
 }

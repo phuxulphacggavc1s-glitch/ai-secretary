@@ -1,18 +1,18 @@
 import { LogOut, ListChecks } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { createTask, getDailyReport, parseTask } from '../api'
-import DailyReport from '../components/DailyReport'
+import { checkinTask, createTask, getBriefing, parseTask, snoozeTask } from '../api'
 import ParsePreview from '../components/ParsePreview'
+import SecretaryBriefing from '../components/SecretaryBriefing'
 import TaskInput from '../components/TaskInput'
 import TaskList from '../components/TaskList'
 import TimePickerModal from '../components/TimePickerModal'
 import { useAuth } from '../hooks/useAuth'
 import { useTasks } from '../hooks/useTasks'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 export default function Home() {
   const { user, signOut } = useAuth()
-  const { tasks, loading, error, fetchTasks, completeTask, removeTask } = useTasks({ page_size: 5 })
+  const { tasks, loading, error, fetchTasks, completeTask, beginTask, removeTask } = useTasks({ page_size: 5 })
   const [toast, setToast] = useState('')
   const [parsed, setParsed] = useState(null)
   const [parseOpen, setParseOpen] = useState(false)
@@ -21,13 +21,21 @@ export default function Home() {
   const [submitting, setSubmitting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState('')
-  const [reportState, setReportState] = useState({ report: null, loading: true, error: '' })
+  const [briefingState, setBriefingState] = useState({ briefing: null, loading: true, error: '' })
+
+  const fetchBriefing = useCallback(async () => {
+    setBriefingState((current) => ({ ...current, loading: true, error: '' }))
+    try {
+      const result = await getBriefing()
+      setBriefingState({ briefing: result.briefing, loading: false, error: '' })
+    } catch {
+      setBriefingState({ briefing: null, loading: false, error: '秘书简报加载失败' })
+    }
+  }, [])
 
   useEffect(() => {
-    getDailyReport()
-      .then((result) => setReportState({ report: result.report, loading: false, error: '' }))
-      .catch(() => setReportState({ report: null, loading: false, error: '日报加载失败' }))
-  }, [])
+    fetchBriefing()
+  }, [fetchBriefing])
 
   const showToast = (message) => {
     setToast(message)
@@ -42,6 +50,10 @@ export default function Home() {
       setParseOpen(true)
       if (!result.parsed?.is_time_clear) {
         showToast('时间不明确，请补充提醒时间')
+        setTimeCallback(() => (value) => {
+          setParsed((current) => ({ ...current, remind_time: value, is_time_clear: true }))
+        })
+        setTimeOpen(true)
       }
     } catch (err) {
       setParsed({ content: rawInput, category: '其他', remind_time: null, is_time_clear: false, parse_error: err.message })
@@ -59,6 +71,7 @@ export default function Home() {
       setParseOpen(false)
       setParsed(null)
       await fetchTasks()
+      await fetchBriefing()
       showToast('已保存')
     } catch {
       showToast('创建失败，请重试')
@@ -76,9 +89,50 @@ export default function Home() {
     setBusyId(id)
     try {
       await completeTask(id)
+      await fetchBriefing()
       showToast('已完成')
     } catch {
       showToast('操作失败，请重试')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const handleStart = async (id) => {
+    setBusyId(id)
+    try {
+      await beginTask(id)
+      await fetchBriefing()
+      showToast('已标记为进行中')
+    } catch {
+      showToast('操作失败，请重试')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const handleSnooze = async (id) => {
+    setBusyId(id)
+    try {
+      await snoozeTask(id)
+      await fetchBriefing()
+      showToast('明天再提醒你')
+    } catch {
+      showToast('操作失败，请重试')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const handleCheckin = async (id, body) => {
+    setBusyId(id)
+    try {
+      await checkinTask(id, body)
+      await fetchTasks()
+      await fetchBriefing()
+      showToast('已记录进度')
+    } catch {
+      showToast('记录失败，请重试')
     } finally {
       setBusyId('')
     }
@@ -89,6 +143,7 @@ export default function Home() {
     setBusyId(id)
     try {
       await removeTask(id)
+      await fetchBriefing()
       showToast('已删除')
     } catch {
       showToast('删除失败，请重试')
@@ -104,10 +159,23 @@ export default function Home() {
           <h1 className="text-2xl font-semibold text-slate-950">AI 秘书</h1>
           <p className="mt-1 text-sm text-slate-500">{user?.email}</p>
         </div>
-        <button type="button" onClick={signOut} className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600">
-          <LogOut size={16} />
-          退出
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/tasks"
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          >
+            <ListChecks size={16} />
+            全部任务
+          </Link>
+          <button
+            type="button"
+            onClick={signOut}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600"
+          >
+            <LogOut size={16} />
+            退出
+          </button>
+        </div>
       </header>
 
       {toast && <div className="mt-4 rounded-md bg-slate-900 px-4 py-2 text-sm text-white">{toast}</div>}
@@ -117,37 +185,57 @@ export default function Home() {
       </div>
 
       <div className="mt-5">
-        <DailyReport report={reportState.report} loading={reportState.loading} error={reportState.error} />
+        <SecretaryBriefing
+          briefing={briefingState.briefing}
+          loading={briefingState.loading}
+          error={briefingState.error}
+          onComplete={handleComplete}
+          onStart={handleStart}
+          onSnooze={handleSnooze}
+          onCheckin={handleCheckin}
+          busyId={busyId}
+        />
       </div>
 
-      <section className="mt-6">
+      <div className="mt-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-950">最近记录</h2>
-          <Link to="/tasks" className="inline-flex items-center gap-1 text-sm text-primary">
-            <ListChecks size={16} />
-            全部
+          <h2 className="text-base font-semibold text-slate-950">最近任务</h2>
+          <Link to="/tasks" className="text-sm text-primary">
+            查看全部
           </Link>
         </div>
-        {error && <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-        <TaskList tasks={tasks} loading={loading} onComplete={handleComplete} onDelete={handleDelete} busyId={busyId} />
-      </section>
+        <TaskList
+          tasks={tasks}
+          loading={loading}
+          onComplete={handleComplete}
+          onStart={handleStart}
+          onDelete={handleDelete}
+          busyId={busyId}
+        />
+      </div>
 
-      <ParsePreview
-        open={parseOpen}
-        parsed={parsed}
-        loading={saving}
-        onCancel={() => setParseOpen(false)}
-        onConfirm={handleCreate}
-        onPickTime={handlePickTime}
-      />
-      <TimePickerModal
-        open={timeOpen}
-        onClose={() => setTimeOpen(false)}
-        onConfirm={(value) => {
-          timeCallback?.(value)
-          setTimeOpen(false)
-        }}
-      />
+      {parseOpen && parsed && (
+        <ParsePreview
+          parsed={parsed}
+          saving={saving}
+          onConfirm={handleCreate}
+          onClose={() => {
+            setParseOpen(false)
+            setParsed(null)
+          }}
+          onPickTime={handlePickTime}
+        />
+      )}
+
+      {timeOpen && (
+        <TimePickerModal
+          onConfirm={(value) => {
+            timeCallback?.(value)
+            setTimeOpen(false)
+          }}
+          onClose={() => setTimeOpen(false)}
+        />
+      )}
     </main>
   )
 }

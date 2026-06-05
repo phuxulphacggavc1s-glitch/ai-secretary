@@ -13,6 +13,19 @@ api.interceptors.request.use(async (config) => {
   return config
 })
 
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error?.response?.status === 401) {
+      await supabase.auth.signOut()
+      if (window.location.pathname !== '/login') {
+        window.location.assign('/login')
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 export const parseTask = (rawInput) =>
   api.post('/tasks/parse', { raw_input: rawInput }).then((response) => response.data)
 
@@ -28,7 +41,14 @@ export const updateTask = (id, data) =>
 export const deleteTask = (id) =>
   api.delete(`/tasks/${id}`).then((response) => response.data)
 
-export const getDailyReport = (date) =>
-  api.get('/reports/daily', { params: { report_date: date } }).then((response) => response.data)
+export const startTask = (id) =>
+  updateTask(id, { status: 'in_progress' })
 
-export default api
+export const checkinTask = (id, data) =>
+  api.post(`/tasks/${id}/checkin`, data).then((response) => response.data)
+
+export const snoozeTask = (id) =>
+  api.post(`/tasks/${id}/snooze`).then((response) => response.data)
+
+export const getBriefing = () =>
+  api.get('/secretary/briefing').then((response) => response.data)

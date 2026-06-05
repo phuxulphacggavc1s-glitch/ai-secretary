@@ -1,6 +1,6 @@
 import TaskCard from './TaskCard'
 
-export default function TaskList({ tasks, loading, emptyText, onComplete, onDelete, busyId }) {
+export default function TaskList({ tasks, loading, emptyText, onComplete, onStart, onDelete, busyId }) {
   if (loading) {
     return <div className="rounded-lg bg-white p-6 text-center text-slate-500 ring-1 ring-slate-200">加载中...</div>
   }
@@ -22,6 +22,7 @@ export default function TaskList({ tasks, loading, emptyText, onComplete, onDele
           task={task}
           busy={busyId === task.id}
           onComplete={onComplete}
+          onStart={onStart}
           onDelete={onDelete}
         />
       ))}
