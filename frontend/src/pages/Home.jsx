@@ -67,7 +67,8 @@ export default function Home() {
   const handleCreate = async (form) => {
     setSaving(true)
     try {
-      await createTask(form)
+      const sanitized = { ...form, remind_time: form.remind_time || null }
+      await createTask(sanitized)
       setParseOpen(false)
       setParsed(null)
       await fetchTasks()
@@ -230,6 +231,7 @@ export default function Home() {
 
       {timeOpen && (
         <TimePickerModal
+          open={timeOpen}
           onConfirm={(value) => {
             timeCallback?.(value)
             setTimeOpen(false)
