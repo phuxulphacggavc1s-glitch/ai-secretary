@@ -27,15 +27,19 @@ create table public.tasks (
   content text not null,
   category text default '其他',
   remind_time timestamp with time zone,
-  status text default 'pending' check (status in ('pending', 'done')),
+  status text default 'pending' check (status in ('pending', 'in_progress', 'done')),
   reminded boolean default false,
   priority int default 1 check (priority in (1, 2, 3)),
   ai_summary text,
+  progress_note text,
+  last_checkin_at timestamp with time zone,
+  snooze_until timestamp with time zone,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
 
 create index idx_tasks_user_id on public.tasks(user_id);
+create index idx_tasks_status_user on public.tasks(user_id, status);
 create index idx_tasks_remind on public.tasks(remind_time, status, reminded)
   where remind_time is not null and status = 'pending' and reminded = false;
 
