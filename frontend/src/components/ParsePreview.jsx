@@ -4,7 +4,16 @@ import { useEffect, useState } from 'react'
 const categories = ['工作', '生活', '灵感', '财务', '学习', '其他']
 
 export default function ParsePreview({ parsed, open, onCancel, onConfirm, onPickTime, loading }) {
-  const [form, setForm] = useState({ content: '', category: '其他', remind_time: '', priority: 1 })
+  const [form, setForm] = useState({
+    content: '',
+    category: '其他',
+    remind_time: '',
+    priority: 1,
+    priority_level: 'B',
+    goal: '',
+    success_criteria: '',
+    related_person: '',
+  })
 
   useEffect(() => {
     if (parsed) {
@@ -13,6 +22,10 @@ export default function ParsePreview({ parsed, open, onCancel, onConfirm, onPick
         category: parsed.category || '其他',
         remind_time: parsed.remind_time || '',
         priority: 1,
+        priority_level: parsed.priority_level || 'B',
+        goal: parsed.goal || '',
+        success_criteria: parsed.success_criteria || '',
+        related_person: parsed.related_person || '',
       })
     }
   }, [parsed])
@@ -24,6 +37,11 @@ export default function ParsePreview({ parsed, open, onCancel, onConfirm, onPick
       <section className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl">
         <h2 className="text-lg font-semibold text-slate-950">AI 已解析</h2>
         {parsed?.parse_error && <p className="mt-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-700">解析失败，请手动填写</p>}
+        {parsed?.clarify_question && (
+          <p className="mt-2 rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-700">
+            {parsed.clarify_question}
+          </p>
+        )}
         <div className="mt-4 space-y-4">
           <label className="block text-sm font-medium text-slate-700">
             内容
@@ -33,6 +51,26 @@ export default function ParsePreview({ parsed, open, onCancel, onConfirm, onPick
             分类
             <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2">
               {categories.map((category) => <option key={category}>{category}</option>)}
+            </select>
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            目标
+            <input value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            完成标准
+            <input value={form.success_criteria} onChange={(event) => setForm({ ...form, success_criteria: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            相关人
+            <input value={form.related_person} onChange={(event) => setForm({ ...form, related_person: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" />
+          </label>
+          <label className="block text-sm font-medium text-slate-700">
+            优先级
+            <select value={form.priority_level} onChange={(event) => setForm({ ...form, priority_level: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2">
+              <option value="S">S 级</option>
+              <option value="A">A 级</option>
+              <option value="B">B 级</option>
             </select>
           </label>
           <div className="rounded-md bg-slate-50 p-3 text-sm text-slate-600">

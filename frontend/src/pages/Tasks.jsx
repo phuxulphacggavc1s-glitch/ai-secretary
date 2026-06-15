@@ -1,22 +1,29 @@
 import { ArrowLeft, Search } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { replyTask } from '../api'
 import TaskList from '../components/TaskList'
 import { useTasks } from '../hooks/useTasks'
 import { useMemo, useState } from 'react'
 
-const tabs = ['全部', '工作', '生活', '灵感', '财务', '学习', '进行中', '已完成']
+const tabs = ['全部', '工作', '生活', '灵感', '财务', '学习', '待处理', '进行中', '等回复', '受阻', '已完成', '已取消']
+const statusByTab = {
+  待处理: 'pending',
+  进行中: 'in_progress',
+  等回复: 'waiting_response',
+  受阻: 'blocked',
+  已完成: 'done',
+  已取消: 'cancelled',
+}
 
 export default function Tasks() {
   const [tab, setTab] = useState('全部')
   const [keyword, setKeyword] = useState('')
-  const params = tab === '已完成'
-    ? { status: 'done', page_size: 50 }
-    : tab === '进行中'
-      ? { status: 'in_progress', page_size: 50 }
-      : tab === '全部'
-        ? { page_size: 50 }
-        : { category: tab, page_size: 50 }
-  const { tasks, loading, error, completeTask, beginTask, removeTask } = useTasks(params)
+  const params = statusByTab[tab]
+    ? { status: statusByTab[tab], page_size: 50 }
+    : tab === '全部'
+      ? { page_size: 50 }
+      : { category: tab, page_size: 50 }
+  const { tasks, loading, error, fetchTasks, completeTask, beginTask, removeTask } = useTasks(params)
   const [busyId, setBusyId] = useState('')
   const [toast, setToast] = useState('')
 
@@ -61,6 +68,19 @@ export default function Tasks() {
       showToast('已标记为进行中')
     } catch {
       showToast('操作失败，请重试')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const handleReply = async (id, replyText) => {
+    setBusyId(id)
+    try {
+      const result = await replyTask(id, { reply_text: replyText })
+      await fetchTasks()
+      showToast(`AI 已判断为：${result.judged?.new_status || '已更新'}`)
+    } catch {
+      showToast('进展判断失败，请重试')
     } finally {
       setBusyId('')
     }
@@ -113,6 +133,7 @@ export default function Tasks() {
           onComplete={handleComplete}
           onStart={handleStart}
           onDelete={handleDelete}
+          onReply={handleReply}
           busyId={busyId}
         />
       </section>

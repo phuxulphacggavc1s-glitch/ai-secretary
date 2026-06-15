@@ -1,6 +1,6 @@
-import { LogOut, ListChecks } from 'lucide-react'
+import { LogOut, ListChecks, Bot } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { checkinTask, createTask, getBriefing, parseTask, snoozeTask } from '../api'
+import { checkinTask, createTask, getBriefing, parseTask, replyTask, snoozeTask } from '../api'
 import ParsePreview from '../components/ParsePreview'
 import SecretaryBriefing from '../components/SecretaryBriefing'
 import TaskInput from '../components/TaskInput'
@@ -139,6 +139,20 @@ export default function Home() {
     }
   }
 
+  const handleReply = async (id, replyText) => {
+    setBusyId(id)
+    try {
+      const result = await replyTask(id, { reply_text: replyText })
+      await fetchTasks()
+      await fetchBriefing()
+      showToast(`AI 已判断为：${result.judged?.new_status || '已更新'}`)
+    } catch {
+      showToast('进展判断失败，请重试')
+    } finally {
+      setBusyId('')
+    }
+  }
+
   const handleDelete = async (id) => {
     if (!window.confirm('确定删除这条待办吗？')) return
     setBusyId(id)
@@ -154,32 +168,41 @@ export default function Home() {
   }
 
   return (
-    <main className="mx-auto min-h-screen max-w-3xl px-4 py-5">
+    <main className="mx-auto min-h-screen max-w-3xl px-4 py-6">
       <header className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-950">AI 秘书</h1>
-          <p className="mt-1 text-sm text-slate-500">{user?.email}</p>
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_rgba(79,70,229,0.32)]">
+            <Bot size={22} />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight text-slate-900">AI 秘书</h1>
+            <p className="text-xs text-slate-400">{user?.email}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Link
             to="/tasks"
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-soft transition hover:border-slate-300 hover:text-slate-900"
           >
             <ListChecks size={16} />
-            全部任务
+            <span className="hidden sm:inline">全部任务</span>
           </Link>
           <button
             type="button"
             onClick={signOut}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-600"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-soft transition hover:border-slate-300 hover:text-slate-900"
           >
             <LogOut size={16} />
-            退出
+            <span className="hidden sm:inline">退出</span>
           </button>
         </div>
       </header>
 
-      {toast && <div className="mt-4 rounded-md bg-slate-900 px-4 py-2 text-sm text-white">{toast}</div>}
+      {toast && (
+        <div className="mt-4 rounded-xl bg-slate-900 px-4 py-2.5 text-sm text-white shadow-card">
+          {toast}
+        </div>
+      )}
 
       <div className="mt-5">
         <TaskInput onSubmit={handleParse} loading={submitting} />
@@ -198,11 +221,14 @@ export default function Home() {
         />
       </div>
 
-      <div className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-slate-950">最近任务</h2>
-          <Link to="/tasks" className="text-sm text-primary">
-            查看全部
+      <div className="mt-7">
+        <div className="mb-3 flex items-center justify-between px-1">
+          <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
+            <ListChecks size={18} className="text-primary" />
+            最近任务
+          </h2>
+          <Link to="/tasks" className="text-sm font-medium text-primary hover:text-primary-deep">
+            查看全部 ›
           </Link>
         </div>
         <TaskList
@@ -211,6 +237,7 @@ export default function Home() {
           onComplete={handleComplete}
           onStart={handleStart}
           onDelete={handleDelete}
+          onReply={handleReply}
           busyId={busyId}
         />
       </div>

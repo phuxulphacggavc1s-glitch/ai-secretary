@@ -4,6 +4,7 @@ from database import supabase
 from services.email_service import send_reminder_email
 
 
+# Deprecated: V2 uses services.followup.scan_followups + Enterprise WeChat.
 def check_and_send_reminders():
     now = datetime.now(timezone.utc).isoformat()
     result = (

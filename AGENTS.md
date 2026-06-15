@@ -5,6 +5,13 @@
 
 ---
 
+## Collaboration Notice Rule
+
+- Codex 每次开始执行任务后，必须在执行过程中给用户简短提示，说明当前正在做什么。
+- Codex 每次任务结束后，必须给用户明确的结束提示，说明已完成什么、验证结果是什么、还有哪些未完成或需要用户确认。
+
+---
+
 ## Project Overview
 
 Build a full-stack AI life secretary web app where users type a natural language sentence (e.g. "remind me to quote the client tomorrow afternoon") and the system automatically:

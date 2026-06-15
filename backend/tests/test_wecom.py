@@ -22,3 +22,25 @@ def test_build_reminder_markdown_contains_core_fields():
     assert "/tasks" in markdown
     assert "TODO" not in markdown
     assert markdown.endswith(")")
+
+
+def test_resolve_mentioned_mobiles_uses_email_map(monkeypatch):
+    class FakeUsersQuery:
+        def select(self, _columns):
+            return self
+
+        def eq(self, _column, _value):
+            return self
+
+        def execute(self):
+            return type("Result", (), {"data": [{"email": "USER@example.com"}]})()
+
+    class FakeSupabase:
+        def table(self, name):
+            assert name == "users"
+            return FakeUsersQuery()
+
+    monkeypatch.setattr(wecom, "WECOM_PHONE_MAP_JSON", '{"user@example.com":"13800138000"}')
+    monkeypatch.setattr(wecom, "supabase", FakeSupabase())
+
+    assert wecom.resolve_mentioned_mobiles("user-1") == ["13800138000"]

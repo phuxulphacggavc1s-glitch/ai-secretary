@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import httpx
 
-from config import FRONTEND_URL, WECOM_WEBHOOK_URL
+from config import FRONTEND_URL, WECOM_PHONE_MAP_JSON, WECOM_WEBHOOK_URL
 from database import supabase
+
+
+def _phone_map() -> dict[str, str]:
+    try:
+        data = json.loads(WECOM_PHONE_MAP_JSON or "{}")
+    except json.JSONDecodeError as exc:
+        print(f"WECOM_PHONE_MAP_JSON invalid: {exc}")
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(email).lower(): str(mobile) for email, mobile in data.items() if mobile}
 
 
 def resolve_webhook(user_id: str) -> str | None:
@@ -21,6 +33,28 @@ def resolve_webhook(user_id: str) -> str | None:
     except Exception as exc:
         print(f"resolve_webhook failed for {user_id}: {exc}")
     return WECOM_WEBHOOK_URL
+
+
+def resolve_mentioned_mobiles(user_id: str) -> list[str] | None:
+    phone_map = _phone_map()
+    if not phone_map:
+        return None
+
+    try:
+        result = (
+            supabase.table("users")
+            .select("email")
+            .eq("id", user_id)
+            .execute()
+        )
+        if result.data:
+            email = (result.data[0].get("email") or "").lower()
+            mobile = phone_map.get(email)
+            if mobile:
+                return [mobile]
+    except Exception as exc:
+        print(f"resolve_mentioned_mobiles failed for {user_id}: {exc}")
+    return None
 
 
 def send_wecom(

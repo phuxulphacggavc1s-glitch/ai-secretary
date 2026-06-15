@@ -5,7 +5,6 @@ import pytz
 
 from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from database import supabase
-from services.email_service import send_daily_report_email
 
 REPORT_PROMPT = """你是用户的AI秘书，帮用户生成今天的工作总结。
 
@@ -108,7 +107,6 @@ def generate_daily_reports():
                 on_conflict="user_id,report_date",
             ).execute()
 
-            if user.get("email"):
-                send_daily_report_email(user["email"], report_content, today.isoformat())
+            # V2 only stores the report; email delivery is disabled.
         except Exception as exc:
             print(f"Daily report failed for user {user_id}: {exc}")

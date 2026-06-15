@@ -54,6 +54,12 @@ def _fallback(raw_input: str, error: Exception | None = None) -> dict:
         "remind_time": None,
         "is_time_clear": False,
         "original_time_text": None,
+        "goal": None,
+        "success_criteria": None,
+        "related_person": None,
+        "missing_fields": ["goal", "success_criteria", "remind_time"],
+        "clarify_question": "这件事的目标、完成标准和提醒时间分别是什么？",
+        "is_complete": False,
     }
     if error:
         result["parse_error"] = str(error)

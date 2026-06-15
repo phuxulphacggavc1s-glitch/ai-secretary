@@ -5,7 +5,7 @@
 当前建议架构：
 
 - 域名：`mede-in-ai.com`、`www.mede-in-ai.com`
-- ECS：`123.57.180.79`，Ubuntu 22.04
+- ECS：`‹服务器IP已隐藏›`，Ubuntu 22.04
 - 前端：React/Vite 构建后由 Nginx 提供静态文件
 - 后端：FastAPI 运行在 ECS 本机 `127.0.0.1:8000`
 - 对外访问：`https://mede-in-ai.com`，接口走同域 `/api`
@@ -49,8 +49,8 @@ venv/
 
 | 主机记录 | 类型 | 记录值 |
 |---|---|---|
-| `@` | A | `123.57.180.79` |
-| `www` | A | `123.57.180.79` |
+| `@` | A | `‹服务器IP已隐藏›` |
+| `www` | A | `‹服务器IP已隐藏›` |
 
 解析生效后，在本地检查：
 
@@ -59,7 +59,7 @@ nslookup mede-in-ai.com
 nslookup www.mede-in-ai.com
 ```
 
-返回 IP 应该是 `123.57.180.79`。
+返回 IP 应该是 `‹服务器IP已隐藏›`。
 
 ## 三、ECS 安全组
 
@@ -76,7 +76,7 @@ nslookup www.mede-in-ai.com
 ## 四、登录服务器并安装环境
 
 ```bash
-ssh root@123.57.180.79
+ssh root@‹服务器IP已隐藏›
 ```
 
 在服务器执行：
@@ -202,7 +202,7 @@ npm run build
 cat > /etc/nginx/sites-available/ai-secretary <<'EOF'
 server {
     listen 80;
-    server_name mede-in-ai.com www.mede-in-ai.com 123.57.180.79;
+    server_name mede-in-ai.com www.mede-in-ai.com ‹服务器IP已隐藏›;
 
     root /var/www/ai-secretary/frontend/dist;
     index index.html;

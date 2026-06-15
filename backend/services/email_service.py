@@ -5,6 +5,7 @@ import resend
 from config import FROM_EMAIL, RESEND_API_KEY
 
 
+# Deprecated: V2 reminder channel is Enterprise WeChat. Kept for legacy callers.
 def _can_send() -> bool:
     return bool(RESEND_API_KEY and FROM_EMAIL)
 

@@ -1,7 +1,7 @@
 
 # AI Secretary MVP
 
-面向中文用户的 AI 生活/工作秘书 Web MVP。用户输入一句自然语言，系统通过 DeepSeek 解析任务内容、分类和提醒时间，确认后保存到 Supabase，并通过 FastAPI 定时发送邮件提醒和每日总结。
+面向中文用户的 AI 生活/工作秘书 Web MVP。用户输入一句自然语言，系统通过 DeepSeek 解析任务内容、分类和提醒时间，确认后保存到 Supabase，并通过 FastAPI 定时发送企业微信提醒和每日督办摘要。
 
 ## 技术栈
 
@@ -9,12 +9,12 @@
 - 后端：FastAPI + APScheduler
 - 数据库/认证：Supabase
 - AI：DeepSeek API（OpenAI-compatible）
-- 邮件：Resend
+- 提醒通道：企业微信机器人（邮件链路已停用，不再作为主提醒通道）
 
 ## 目录
 
 ```text
-backend/       FastAPI API、AI 解析、提醒和日报服务
+backend/       FastAPI API、AI 解析、企业微信提醒和日报服务
 frontend/      React Web 应用
 supabase/      数据库初始化 SQL
 docs/          设计和实现计划
@@ -73,5 +73,5 @@ http://localhost:5173
 2. 在首页输入“明天下午提醒我给客户报价”。
 3. 查看 AI 解析结果，必要时编辑内容、分类和提醒时间。
 4. 确认保存，任务进入最近记录和待办列表。
-5. 到提醒时间后端定时任务发送邮件。
-6. 每天 21:00 生成并发送日报。
+5. 到提醒时间后端定时任务发送企业微信督办提醒。
+6. 每天固定时间生成并推送督办摘要。

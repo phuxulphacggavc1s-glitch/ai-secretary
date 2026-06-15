@@ -10,8 +10,8 @@ from config import FRONTEND_URL
 from database import is_supabase_configured
 from rate_limit import limiter
 from routers import reports, secretary, tasks
-from services.daily_report import generate_daily_reports
-from services.reminder import check_and_send_reminders
+from services.followup import escalate_s_level, scan_followups
+from services.secretary import push_morning_briefing
 
 app = FastAPI(title="AI Secretary API")
 app.state.limiter = limiter
@@ -54,6 +54,7 @@ def health():
 
 if is_supabase_configured():
     scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
-    scheduler.add_job(check_and_send_reminders, "interval", minutes=1, id="reminders", replace_existing=True)
-    scheduler.add_job(generate_daily_reports, "cron", hour=21, minute=0, id="daily_reports", replace_existing=True)
+    scheduler.add_job(scan_followups, "interval", minutes=1, id="followups", replace_existing=True)
+    scheduler.add_job(push_morning_briefing, "cron", hour=8, minute=0, id="morning_briefing", replace_existing=True)
+    scheduler.add_job(escalate_s_level, "cron", hour=20, minute=0, id="s_level_escalation", replace_existing=True)
     scheduler.start()

@@ -3,8 +3,16 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from constants import PriorityLevel, TaskStatus
 
-VALID_TASK_STATUSES = {"pending", "in_progress", "done"}
+
+VALID_TASK_STATUSES = {status.value for status in TaskStatus}
+CHECKIN_ALLOWED_STATUSES = {
+    TaskStatus.IN_PROGRESS.value,
+    TaskStatus.WAITING_RESPONSE.value,
+    TaskStatus.BLOCKED.value,
+    TaskStatus.DONE.value,
+}
 
 
 class TaskCreate(BaseModel):
@@ -16,6 +24,12 @@ class TaskConfirm(BaseModel):
     category: str = "其他"
     remind_time: Optional[datetime] = None
     priority: int = Field(default=1, ge=1, le=3)
+    goal: Optional[str] = Field(default=None, max_length=500)
+    success_criteria: Optional[str] = Field(default=None, max_length=500)
+    related_person: Optional[str] = Field(default=None, max_length=100)
+    next_action: Optional[str] = Field(default=None, max_length=500)
+    next_follow_time: Optional[datetime] = None
+    priority_level: PriorityLevel = PriorityLevel.B
 
 
 class TaskUpdate(BaseModel):
@@ -23,6 +37,12 @@ class TaskUpdate(BaseModel):
     content: Optional[str] = None
     category: Optional[str] = None
     remind_time: Optional[datetime] = None
+    goal: Optional[str] = Field(default=None, max_length=500)
+    success_criteria: Optional[str] = Field(default=None, max_length=500)
+    related_person: Optional[str] = Field(default=None, max_length=100)
+    next_action: Optional[str] = Field(default=None, max_length=500)
+    next_follow_time: Optional[datetime] = None
+    priority_level: Optional[PriorityLevel] = None
 
     @field_validator("status")
     @classmethod
@@ -39,7 +59,10 @@ class CheckinBody(BaseModel):
     @field_validator("status")
     @classmethod
     def validate_status(cls, value):
-        allowed = {"in_progress", "done"}
-        if value is not None and value not in allowed:
-            raise ValueError(f"status must be one of {allowed}")
+        if value is not None and value not in CHECKIN_ALLOWED_STATUSES:
+            raise ValueError(f"status must be one of {CHECKIN_ALLOWED_STATUSES}")
         return value
+
+
+class ReplyBody(BaseModel):
+    reply_text: str = Field(min_length=1, max_length=1000)

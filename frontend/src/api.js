@@ -47,6 +47,9 @@ export const startTask = (id) =>
 export const checkinTask = (id, data) =>
   api.post(`/tasks/${id}/checkin`, data).then((response) => response.data)
 
+export const replyTask = (id, data) =>
+  api.post(`/tasks/${id}/reply`, data).then((response) => response.data)
+
 export const snoozeTask = (id) =>
   api.post(`/tasks/${id}/snooze`).then((response) => response.data)
 
