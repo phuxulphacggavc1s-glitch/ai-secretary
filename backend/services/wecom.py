@@ -76,6 +76,19 @@ def send_wecom(
     try:
         response = httpx.post(webhook, json=payload, timeout=10)
         response.raise_for_status()
+        if mentioned_mobiles:
+            mention_response = httpx.post(
+                webhook,
+                json={
+                    "msgtype": "text",
+                    "text": {
+                        "content": "AI秘书提醒：请查看上一条督办消息并及时处理。",
+                        "mentioned_mobile_list": mentioned_mobiles,
+                    },
+                },
+                timeout=10,
+            )
+            mention_response.raise_for_status()
         return True
     except Exception as exc:
         print(f"send_wecom failed: {exc}")

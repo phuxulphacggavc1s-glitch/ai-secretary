@@ -5,6 +5,30 @@ def test_send_wecom_returns_false_when_webhook_missing():
     assert wecom.send_wecom(None, "## test") is False
 
 
+def test_send_wecom_sends_text_mention_after_markdown(monkeypatch):
+    payloads = []
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+    def fake_post(_url, json, timeout):
+        payloads.append(json)
+        return Response()
+
+    monkeypatch.setattr(wecom.httpx, "post", fake_post)
+
+    assert wecom.send_wecom("https://example.com", "## test", mentioned_mobiles=["13231252391"]) is True
+    assert payloads[0]["msgtype"] == "markdown"
+    assert payloads[1] == {
+        "msgtype": "text",
+        "text": {
+            "content": "AI秘书提醒：请查看上一条督办消息并及时处理。",
+            "mentioned_mobile_list": ["13231252391"],
+        },
+    }
+
+
 def test_build_reminder_markdown_contains_core_fields():
     markdown = wecom.build_reminder_markdown(
         {
