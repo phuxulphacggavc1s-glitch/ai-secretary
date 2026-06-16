@@ -133,7 +133,8 @@ def scan_followups() -> None:
         supabase.table("tasks")
         .select("*")
         .lte("next_follow_time", now)
-        .not_("status", "in", "(done,cancelled)")
+        .neq("status", TaskStatus.DONE.value)
+        .neq("status", TaskStatus.CANCELLED.value)
         .execute()
     )
 
@@ -173,7 +174,8 @@ def escalate_s_level() -> None:
         .select("*")
         .eq("priority_level", "S")
         .lte("remind_time", now)
-        .not_("status", "in", "(done,cancelled)")
+        .neq("status", TaskStatus.DONE.value)
+        .neq("status", TaskStatus.CANCELLED.value)
         .execute()
     )
     for task in result.data or []:

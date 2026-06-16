@@ -62,6 +62,9 @@ def test_scan_followups_sends_and_postpones(monkeypatch):
         def not_(self, _column, _operator, _value):
             return self
 
+        def neq(self, _column, _value):
+            return self
+
         def update(self, payload):
             query = FakeUpdateQuery(self.bucket)
             query.payload = payload
@@ -150,6 +153,9 @@ def test_escalate_s_level_sends_and_logs(monkeypatch):
             return self
 
         def not_(self, _column, _operator, _value):
+            return self
+
+        def neq(self, _column, _value):
             return self
 
         def insert(self, payload):
