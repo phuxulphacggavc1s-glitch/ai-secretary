@@ -12,6 +12,9 @@ def test_send_wecom_sends_text_mention_after_markdown(monkeypatch):
         def raise_for_status(self):
             return None
 
+        def json(self):
+            return {"errcode": 0, "errmsg": "ok"}
+
     def fake_post(_url, json, timeout):
         payloads.append(json)
         return Response()

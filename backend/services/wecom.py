@@ -76,6 +76,10 @@ def send_wecom(
     try:
         response = httpx.post(webhook, json=payload, timeout=10)
         response.raise_for_status()
+        markdown_result = response.json()
+        if markdown_result.get("errcode") != 0:
+            print(f"send_wecom markdown failed: {markdown_result}")
+            return False
         if mentioned_mobiles:
             mention_response = httpx.post(
                 webhook,
@@ -89,6 +93,10 @@ def send_wecom(
                 timeout=10,
             )
             mention_response.raise_for_status()
+            mention_result = mention_response.json()
+            if mention_result.get("errcode") != 0:
+                print(f"send_wecom mention failed: {mention_result}")
+                return False
         return True
     except Exception as exc:
         print(f"send_wecom failed: {exc}")
