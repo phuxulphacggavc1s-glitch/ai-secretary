@@ -92,6 +92,9 @@ export default function SecretaryBriefing({
   const stats = briefing.stats || {}
   const waitingOverdue = stats.waiting_overdue || 0
   const blocked = stats.blocked || 0
+  const activeToday = (briefing.today || []).filter(
+    (task) => !['done', 'cancelled'].includes(task.status),
+  )
 
   return (
     <section className="space-y-3.5">
@@ -270,14 +273,14 @@ export default function SecretaryBriefing({
       )}
 
       {/* Today */}
-      {!!briefing.today?.length && (
+      {!!activeToday.length && (
         <div className="rounded-xl2 border border-slate-200 bg-white p-4 shadow-soft">
           <div className="mb-2.5 flex items-center gap-2 text-sm font-bold text-slate-700">
             <Clock size={16} />
             今日待办
           </div>
           <div className="space-y-2">
-            {briefing.today.slice(0, 5).map((task) => (
+            {activeToday.slice(0, 5).map((task) => (
               <TaskLine key={task.id} task={task} accent="indigo" />
             ))}
           </div>

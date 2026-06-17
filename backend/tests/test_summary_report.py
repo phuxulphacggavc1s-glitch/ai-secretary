@@ -97,7 +97,11 @@ def test_build_summary_report_week_counts_and_suggestions(monkeypatch):
     assert report["category_stats"] == [{"category": "工作", "count": 2}, {"category": "财务", "count": 1}]
     assert report["highlights"] == ["完成报价单"]
     assert report["risks"] == ["跟进客户回款"]
-    assert len(report["suggestions"]) == 3
+    assert report["suggestions"] == [
+        "今天先处理「跟进客户回款」，明确下一步动作并重新设置跟进时间。",
+        "把「工作」类任务集中安排一个时间块批量处理，本期这里堆了 2 件。",
+        "本期完成率 33%，下期先保留 1-3 件最关键事项，完成后再新增。",
+    ]
     assert ("eq", "user_id", "user-1") in fake_supabase.query.filters
 
 

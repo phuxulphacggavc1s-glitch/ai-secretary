@@ -1,4 +1,4 @@
-import { BarChart3, LogOut, ListChecks, Bot } from 'lucide-react'
+import { BarChart3, ChevronRight, LogOut, ListChecks, Bot } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { checkinTask, createTask, getBriefing, parseTask, replyTask, snoozeTask } from '../api'
 import ParsePreview from '../components/ParsePreview'
@@ -214,6 +214,20 @@ export default function Home() {
       <div className="mt-5">
         <TaskInput onSubmit={handleParse} loading={submitting} />
       </div>
+
+      <Link
+        to="/reports"
+        className="mt-4 flex items-center gap-3 rounded-xl2 border border-brand-100 bg-white p-4 shadow-soft transition hover:border-primary/40 hover:shadow-card"
+      >
+        <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-primary-soft text-primary">
+          <BarChart3 size={20} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-bold text-slate-900">复盘总结</h2>
+          <p className="mt-0.5 text-xs text-slate-500">查看周汇报、月总结和具体改进建议</p>
+        </div>
+        <ChevronRight size={18} className="flex-none text-slate-400" />
+      </Link>
 
       <div className="mt-5">
         <SecretaryBriefing

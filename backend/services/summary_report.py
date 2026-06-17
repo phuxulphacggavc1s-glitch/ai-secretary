@@ -50,13 +50,19 @@ def _task_names(tasks: list[dict], limit: int = 8) -> list[str]:
 
 def _fallback_suggestions(stats: dict, risks: list[str], category_stats: list[dict]) -> list[str]:
     suggestions = []
-    if stats["overdue"]:
-        suggestions.append("先把逾期事项单独清一遍，每天固定一个时间处理到期提醒。")
+    if stats["overdue"] and risks:
+        suggestions.append(f"今天先处理「{risks[0]}」，明确下一步动作并重新设置跟进时间。")
+    elif stats["overdue"]:
+        suggestions.append("今天先清掉最早逾期的事项，处理后马上更新状态或重设跟进时间。")
     if category_stats:
         top_category = category_stats[0]["category"]
-        suggestions.append(f"本期任务集中在「{top_category}」，建议把同类事项批量处理，减少来回切换。")
+        top_count = category_stats[0]["count"]
+        suggestions.append(f"把「{top_category}」类任务集中安排一个时间块批量处理，本期这里堆了 {top_count} 件。")
+    if stats["total"]:
+        completion_rate = round(stats["done"] / stats["total"] * 100)
+        suggestions.append(f"本期完成率 {completion_rate}%，下期先保留 1-3 件最关键事项，完成后再新增。")
     if risks:
-        suggestions.append("对反复拖延的事项，补一句下一步动作和明确跟进时间，避免只记录不推进。")
+        suggestions.append(f"给「{risks[0]}」补一句可执行的下一步，避免只停留在提醒里。")
     while len(suggestions) < 3:
         suggestions.append("保持少量重点任务在前面，优先处理能直接产生结果的事项。")
     return suggestions[:3]
