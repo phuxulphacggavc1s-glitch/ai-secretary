@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import { AlertTriangle, CheckCircle2, Clock, Flag, PlayCircle, Send, Sparkles } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 
 function TaskLine({ task, accent = 'slate' }) {
@@ -25,14 +26,17 @@ function TaskLine({ task, accent = 'slate' }) {
   )
 }
 
-function StatCard({ value, label, alert }) {
+function StatCard({ value, label, alert, onClick }) {
+  const Component = onClick ? 'button' : 'div'
   return (
-    <div
-      className={`flex-1 rounded-2xl border px-3.5 py-3 ${
+    <Component
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`flex-1 rounded-2xl border px-3.5 py-3 text-left transition ${
         alert
-          ? 'border-white bg-white'
-          : 'border-white/20 bg-white/15 backdrop-blur-sm'
-      }`}
+          ? 'border-white bg-white hover:bg-rose-50'
+          : 'border-white/20 bg-white/15 backdrop-blur-sm hover:bg-white/25'
+      } ${onClick ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/80' : ''}`}
     >
       <div
         className={`text-2xl font-extrabold leading-none tracking-tight ${
@@ -44,7 +48,7 @@ function StatCard({ value, label, alert }) {
       <div className={`mt-1.5 text-xs ${alert ? 'font-semibold text-slate-600' : 'text-white/85'}`}>
         {label}
       </div>
-    </div>
+    </Component>
   )
 }
 
@@ -59,6 +63,7 @@ export default function SecretaryBriefing({
   busyId,
 }) {
   const [noteById, setNoteById] = useState({})
+  const navigate = useNavigate()
 
   if (loading) {
     return (
@@ -100,9 +105,9 @@ export default function SecretaryBriefing({
           </div>
           <p className="mt-2 text-lg font-semibold leading-snug">{briefing.greeting}</p>
           <div className="mt-4 flex gap-2.5">
-            <StatCard value={stats.done_today || 0} label="今日已完成" />
-            <StatCard value={stats.in_progress || 0} label="进行中" />
-            <StatCard value={stats.overdue || 0} label="逾期待处理" alert />
+            <StatCard value={stats.done_today || 0} label="今日已完成" onClick={() => navigate('/tasks?status=done')} />
+            <StatCard value={stats.in_progress || 0} label="进行中" onClick={() => navigate('/tasks?status=in_progress')} />
+            <StatCard value={stats.overdue || 0} label="逾期待处理" alert onClick={() => navigate('/tasks?view=overdue')} />
           </div>
           {(waitingOverdue > 0 || blocked > 0) && (
             <p className="mt-3 text-xs text-white/85">

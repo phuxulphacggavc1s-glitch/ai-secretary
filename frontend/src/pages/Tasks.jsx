@@ -1,5 +1,5 @@
 import { ArrowLeft, Search } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { replyTask } from '../api'
 import TaskList from '../components/TaskList'
 import { useTasks } from '../hooks/useTasks'
@@ -16,9 +16,17 @@ const statusByTab = {
 }
 
 export default function Tasks() {
-  const [tab, setTab] = useState('全部')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialStatus = searchParams.get('status')
+  const initialView = searchParams.get('view')
+  const initialTab = initialView === 'overdue'
+    ? '逾期'
+    : Object.entries(statusByTab).find(([, status]) => status === initialStatus)?.[0] || '全部'
+  const [tab, setTab] = useState(initialTab)
   const [keyword, setKeyword] = useState('')
-  const params = statusByTab[tab]
+  const params = tab === '逾期'
+    ? { page_size: 50 }
+    : statusByTab[tab]
     ? { status: statusByTab[tab], page_size: 50 }
     : tab === '全部'
       ? { page_size: 50 }
@@ -28,8 +36,27 @@ export default function Tasks() {
   const [toast, setToast] = useState('')
 
   const filtered = useMemo(() => {
-    return tasks.filter((task) => task.content?.includes(keyword.trim()))
-  }, [tasks, keyword])
+    const now = Date.now()
+    return tasks.filter((task) => {
+      const matchesKeyword = task.content?.includes(keyword.trim())
+      if (!matchesKeyword) return false
+      if (tab !== '逾期') return true
+      if (['done', 'cancelled'].includes(task.status)) return false
+      if (!task.remind_time || new Date(task.remind_time).getTime() >= now) return false
+      return !task.next_follow_time || new Date(task.next_follow_time).getTime() <= now
+    })
+  }, [tasks, keyword, tab])
+
+  const handleTabChange = (item) => {
+    setTab(item)
+    const next = new URLSearchParams()
+    if (item === '逾期') {
+      next.set('view', 'overdue')
+    } else if (statusByTab[item]) {
+      next.set('status', statusByTab[item])
+    }
+    setSearchParams(next, { replace: true })
+  }
 
   const showToast = (message) => {
     setToast(message)
@@ -111,11 +138,11 @@ export default function Tasks() {
       </div>
 
       <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-        {tabs.map((item) => (
+        {['逾期', ...tabs].map((item) => (
           <button
             key={item}
             type="button"
-            onClick={() => setTab(item)}
+            onClick={() => handleTabChange(item)}
             className={`shrink-0 rounded-full px-4 py-2 text-sm ${tab === item ? 'bg-primary text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}
           >
             {item}

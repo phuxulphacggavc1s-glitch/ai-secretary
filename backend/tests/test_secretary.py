@@ -127,6 +127,47 @@ def test_build_briefing_hides_snoozed_overdue(monkeypatch):
     assert briefing["stats"]["overdue"] == 0
 
 
+def test_build_briefing_hides_postponed_followups_from_overdue(monkeypatch):
+    fixed_now = datetime.fromisoformat("2026-06-05T12:00:00+08:00")
+    monkeypatch.setattr(secretary, "_now_for_timezone", lambda _timezone: fixed_now)
+    monkeypatch.setattr(
+        secretary,
+        "supabase",
+        FakeSupabase(
+            {
+                "users": [{"id": "user-1", "timezone": "Asia/Shanghai"}],
+                "tasks": [
+                    {
+                        "id": "postponed",
+                        "user_id": "user-1",
+                        "content": "给客户报价",
+                        "status": "pending",
+                        "priority": 3,
+                        "remind_time": "2026-06-04T09:00:00+08:00",
+                        "next_follow_time": "2026-06-06T09:00:00+08:00",
+                        "snooze_until": None,
+                    },
+                    {
+                        "id": "still-overdue",
+                        "user_id": "user-1",
+                        "content": "确认合同",
+                        "status": "pending",
+                        "priority": 2,
+                        "remind_time": "2026-06-04T10:00:00+08:00",
+                        "next_follow_time": "2026-06-05T10:00:00+08:00",
+                        "snooze_until": None,
+                    },
+                ],
+            }
+        ),
+    )
+
+    briefing = secretary.build_briefing("user-1")
+
+    assert [task["id"] for task in briefing["overdue"]] == ["still-overdue"]
+    assert briefing["stats"]["overdue"] == 1
+
+
 def test_build_briefing_includes_waiting_overdue_and_blocked(monkeypatch):
     fixed_now = datetime.fromisoformat("2026-06-05T12:00:00+08:00")
     monkeypatch.setattr(secretary, "_now_for_timezone", lambda _timezone: fixed_now)

@@ -83,11 +83,13 @@ def build_briefing(user_id: str) -> dict:
     overdue = []
     for task in tasks:
         remind_at = _parse_datetime(task.get("remind_time"))
+        next_follow_at = _parse_datetime(task.get("next_follow_time"))
         snooze_until = _parse_datetime(task.get("snooze_until"))
         if (
             task.get("status") != "done"
             and remind_at
             and remind_at < now
+            and (not next_follow_at or next_follow_at <= now)
             and (not snooze_until or snooze_until <= now)
         ):
             overdue.append(task)
