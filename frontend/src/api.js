@@ -55,3 +55,6 @@ export const snoozeTask = (id) =>
 
 export const getBriefing = () =>
   api.get('/secretary/briefing').then((response) => response.data)
+
+export const getSummaryReport = (period) =>
+  api.get('/reports/summary', { params: { period } }).then((response) => response.data)
