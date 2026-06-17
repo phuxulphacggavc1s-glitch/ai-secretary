@@ -104,11 +104,11 @@ def build_briefing(user_id: str) -> dict:
     ]
     blocked = [task for task in tasks if task.get("status") == "blocked"]
     checkins = [task for task in in_progress if _should_check_in(task, now, today_start)]
-    sorted_today = sorted(today_tasks + done_today, key=_sort_key)
+    sorted_today = sorted(today_tasks, key=_sort_key)
     top_priority_candidates = sorted([task for task in tasks if task.get("status") != "done"], key=_sort_key)
 
     stats = {
-        "today_total": len(today_tasks) + len(done_today),
+        "today_total": len(today_tasks),
         "overdue": len(overdue),
         "in_progress": len(in_progress),
         "done_today": len(done_today),

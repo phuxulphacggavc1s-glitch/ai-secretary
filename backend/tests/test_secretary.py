@@ -86,15 +86,15 @@ def test_build_briefing_prioritizes_today_overdue_and_checkins(monkeypatch):
 
     briefing = secretary.build_briefing("user-1")
 
-    assert briefing["stats"]["today_total"] == 2
+    assert briefing["stats"]["today_total"] == 1
     assert briefing["stats"]["overdue"] == 1
     assert briefing["stats"]["in_progress"] == 1
     assert briefing["stats"]["done_today"] == 1
     assert briefing["top_priority"]["id"] == "today-high"
-    assert [task["id"] for task in briefing["today"]] == ["today-high", "done-today"]
+    assert [task["id"] for task in briefing["today"]] == ["today-high"]
     assert [task["id"] for task in briefing["overdue"]] == ["overdue"]
     assert [task["id"] for task in briefing["checkins"]] == ["doing"]
-    assert "今天有 2 件重点，1 件逾期" in briefing["greeting"]
+    assert "今天有 1 件重点，1 件逾期" in briefing["greeting"]
 
 
 def test_build_briefing_hides_snoozed_overdue(monkeypatch):

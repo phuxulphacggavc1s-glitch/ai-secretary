@@ -185,14 +185,14 @@ export default function Home() {
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-soft transition hover:border-slate-300 hover:text-slate-900"
           >
             <ListChecks size={16} />
-            <span className="hidden sm:inline">全部任务</span>
+            <span>任务</span>
           </Link>
           <Link
             to="/reports"
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-soft transition hover:border-slate-300 hover:text-slate-900"
           >
             <BarChart3 size={16} />
-            <span className="hidden sm:inline">复盘</span>
+            <span>复盘</span>
           </Link>
           <button
             type="button"
