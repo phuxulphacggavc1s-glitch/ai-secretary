@@ -37,9 +37,6 @@ async def create_task(body: TaskConfirm, user=Depends(get_current_user)):
         "remind_time": body.remind_time.isoformat() if body.remind_time else None,
         "priority": priority,
         "priority_level": priority_level or "B",
-        "goal": body.goal,
-        "success_criteria": body.success_criteria,
-        "related_person": body.related_person,
         "next_action": body.next_action,
         "next_follow_time": body.next_follow_time.isoformat() if body.next_follow_time else None,
     }

@@ -63,8 +63,6 @@ export default function TaskCard({ task, onComplete, onStart, onDelete, onReply,
       >
         {task.content}
       </h3>
-      {task.goal && <p className="mt-2 text-sm text-slate-600">目标：{task.goal}</p>}
-      {task.related_person && <p className="mt-1 text-sm text-slate-500">相关人：{task.related_person}</p>}
       <p className="mt-2 text-sm text-slate-500">
         {task.remind_time ? dayjs(task.remind_time).format('M月D日 HH:mm') : '未设置提醒时间'}
       </p>

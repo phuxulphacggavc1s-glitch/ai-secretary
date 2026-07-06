@@ -1,14 +1,15 @@
-import { BarChart3, ChevronRight, LogOut, ListChecks, Bot } from 'lucide-react'
+import { BarChart3, ChevronRight, LogOut, ListChecks } from 'lucide-react'
+import SecretaryAvatar from '../components/SecretaryAvatar'
 import { Link } from 'react-router-dom'
-import { checkinTask, createTask, getBriefing, parseTask, replyTask, snoozeTask } from '../api'
+import { checkinTask, createTask, getBriefing, replyTask, snoozeTask } from '../api'
 import ParsePreview from '../components/ParsePreview'
 import SecretaryBriefing from '../components/SecretaryBriefing'
-import TaskInput from '../components/TaskInput'
+import SecretaryChat from '../components/SecretaryChat'
 import TaskList from '../components/TaskList'
 import TimePickerModal from '../components/TimePickerModal'
 import { useAuth } from '../hooks/useAuth'
 import { useTasks } from '../hooks/useTasks'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export default function Home() {
   const { user, signOut } = useAuth()
@@ -18,10 +19,10 @@ export default function Home() {
   const [parseOpen, setParseOpen] = useState(false)
   const [timeOpen, setTimeOpen] = useState(false)
   const [timeCallback, setTimeCallback] = useState(null)
-  const [submitting, setSubmitting] = useState(false)
   const [saving, setSaving] = useState(false)
   const [busyId, setBusyId] = useState('')
   const [briefingState, setBriefingState] = useState({ briefing: null, loading: true, error: '' })
+  const chatRef = useRef(null)
 
   const fetchBriefing = useCallback(async () => {
     setBriefingState((current) => ({ ...current, loading: true, error: '' }))
@@ -42,25 +43,15 @@ export default function Home() {
     window.setTimeout(() => setToast(''), 2500)
   }
 
-  const handleParse = async (rawInput) => {
-    setSubmitting(true)
-    try {
-      const result = await parseTask(rawInput)
-      setParsed(result.parsed)
-      setParseOpen(true)
-      if (!result.parsed?.is_time_clear) {
-        showToast('时间不明确，请补充提醒时间')
-        setTimeCallback(() => (value) => {
-          setParsed((current) => ({ ...current, remind_time: value, is_time_clear: true }))
-        })
-        setTimeOpen(true)
-      }
-    } catch (err) {
-      setParsed({ content: rawInput, category: '其他', remind_time: null, is_time_clear: false, parse_error: err.message })
-      setParseOpen(true)
-      showToast('解析失败，请手动填写')
-    } finally {
-      setSubmitting(false)
+  const handleTaskParsed = (parsedTask) => {
+    setParsed(parsedTask)
+    setParseOpen(true)
+    if (!parsedTask?.is_time_clear) {
+      showToast('时间不明确，请补充提醒时间')
+      setTimeCallback(() => (value) => {
+        setParsed((current) => ({ ...current, remind_time: value, is_time_clear: true }))
+      })
+      setTimeOpen(true)
     }
   }
 
@@ -73,6 +64,7 @@ export default function Home() {
       setParsed(null)
       await fetchTasks()
       await fetchBriefing()
+      chatRef.current?.addLocalSecretaryMessage(`✅ 已记下：${form.content}${form.remind_time ? '，到时间我会提醒你。' : '。'}`)
       showToast('已保存')
     } catch {
       showToast('创建失败，请重试')
@@ -171,9 +163,7 @@ export default function Home() {
     <main className="mx-auto min-h-screen max-w-3xl px-4 py-6">
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-[0_6px_16px_rgba(79,70,229,0.32)]">
-            <Bot size={22} />
-          </span>
+          <SecretaryAvatar size={44} />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">AI 秘书</h1>
             <p className="text-xs text-slate-400">{user?.email}</p>
@@ -212,7 +202,20 @@ export default function Home() {
       )}
 
       <div className="mt-5">
-        <TaskInput onSubmit={handleParse} loading={submitting} />
+        <SecretaryChat ref={chatRef} onTaskParsed={handleTaskParsed} />
+      </div>
+
+      <div className="mt-5">
+        <SecretaryBriefing
+          briefing={briefingState.briefing}
+          loading={briefingState.loading}
+          error={briefingState.error}
+          onComplete={handleComplete}
+          onStart={handleStart}
+          onSnooze={handleSnooze}
+          onCheckin={handleCheckin}
+          busyId={busyId}
+        />
       </div>
 
       <Link
@@ -228,19 +231,6 @@ export default function Home() {
         </div>
         <ChevronRight size={18} className="flex-none text-slate-400" />
       </Link>
-
-      <div className="mt-5">
-        <SecretaryBriefing
-          briefing={briefingState.briefing}
-          loading={briefingState.loading}
-          error={briefingState.error}
-          onComplete={handleComplete}
-          onStart={handleStart}
-          onSnooze={handleSnooze}
-          onCheckin={handleCheckin}
-          busyId={busyId}
-        />
-      </div>
 
       <div className="mt-7">
         <div className="mb-3 flex items-center justify-between px-1">

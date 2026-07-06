@@ -56,5 +56,17 @@ export const snoozeTask = (id) =>
 export const getBriefing = () =>
   api.get('/secretary/briefing').then((response) => response.data)
 
+export const getSecretaryMessages = (limit = 30) =>
+  api.get('/secretary/messages', { params: { limit } }).then((response) => response.data)
+
+export const getSecretaryOpening = () =>
+  api.get('/secretary/opening').then((response) => response.data)
+
+export const sendSecretaryChat = (message) =>
+  api.post('/secretary/chat', { message }).then((response) => response.data)
+
+export const searchSecretaryMessages = (q) =>
+  api.get('/secretary/messages/search', { params: { q } }).then((response) => response.data)
+
 export const getSummaryReport = (period) =>
   api.get('/reports/summary', { params: { period } }).then((response) => response.data)

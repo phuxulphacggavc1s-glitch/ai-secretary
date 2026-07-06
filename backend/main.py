@@ -9,8 +9,9 @@ from slowapi.middleware import SlowAPIMiddleware
 from config import FRONTEND_URL
 from database import is_supabase_configured
 from rate_limit import limiter
-from routers import reports, secretary, tasks
+from routers import reports, secretary, tasks, wecom
 from services.followup import escalate_s_level, scan_followups
+from services.memory import refresh_all_memories
 from services.secretary import push_morning_briefing
 
 app = FastAPI(title="AI Secretary API")
@@ -45,6 +46,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
 app.include_router(tasks.router)
 app.include_router(reports.router)
 app.include_router(secretary.router)
+app.include_router(wecom.router)
 
 
 @app.get("/health")
@@ -57,4 +59,5 @@ if is_supabase_configured():
     scheduler.add_job(scan_followups, "interval", minutes=1, id="followups", replace_existing=True)
     scheduler.add_job(push_morning_briefing, "cron", hour=8, minute=0, id="morning_briefing", replace_existing=True)
     scheduler.add_job(escalate_s_level, "cron", hour=20, minute=0, id="s_level_escalation", replace_existing=True)
+    scheduler.add_job(refresh_all_memories, "cron", day_of_week="sun", hour=21, minute=0, id="memory_refresh", replace_existing=True)
     scheduler.start()

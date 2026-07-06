@@ -8,12 +8,13 @@ from openai import OpenAI
 from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from constants import EventType, TaskStatus
 from database import supabase
+from services.persona import SECRETARY_PERSONA
 from services.wecom import build_reminder_markdown, resolve_mentioned_mobiles, resolve_webhook, send_wecom
 
 
-JUDGE_SYSTEM_PROMPT = """你是结果导向的秘书督办助手。
-
-你需要根据任务上下文和用户最新回复，判断任务状态。
+JUDGE_SYSTEM_PROMPT = SECRETARY_PERSONA + """
+你现在的任务：根据任务上下文和用户最新回复，判断任务状态。
+progress_note 和 next_action 用你的人设口吻写，简短直接。
 
 规则：
 1. 只有拿到最终结果，才能判定为 done。
@@ -79,8 +80,6 @@ def judge_reply(task: dict, reply_text: str) -> dict:
         {
             "task": {
                 "content": task.get("content"),
-                "goal": task.get("goal"),
-                "success_criteria": task.get("success_criteria"),
                 "status": task.get("status"),
                 "next_follow_time": task.get("next_follow_time"),
             },

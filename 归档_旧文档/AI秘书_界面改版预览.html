@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 秘书 · 界面改版预览</title>
+<style>
+  :root {
+    --primary: #4F46E5;
+    --primary-soft: #EEF0FF;
+    --primary-deep: #3730A3;
+    --ink: #0F172A;
+    --ink-2: #475569;
+    --ink-3: #94A3B8;
+    --line: #E9ECF3;
+    --bg: #F5F6FB;
+    --card: #FFFFFF;
+    --red: #E11D48;
+    --red-soft: #FFF1F3;
+    --amber: #D97706;
+    --amber-soft: #FFF7ED;
+    --green: #059669;
+    --green-soft: #ECFDF5;
+    --radius: 18px;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,.04), 0 1px 3px rgba(15,23,42,.06);
+    --shadow-md: 0 4px 14px rgba(15,23,42,.06), 0 2px 4px rgba(15,23,42,.04);
+    --shadow-lg: 0 18px 40px rgba(79,70,229,.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    background:
+      radial-gradient(1200px 480px at 78% -8%, rgba(79,70,229,.10), transparent 60%),
+      radial-gradient(900px 420px at -6% 4%, rgba(14,165,233,.07), transparent 55%),
+      var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 22px 18px 60px; }
+
+  /* ===== Comparison banner ===== */
+  .preview-note {
+    background: linear-gradient(135deg, #1E1B4B, #312E81);
+    color: #C7D2FE;
+    border-radius: 14px;
+    padding: 14px 18px;
+    font-size: 13px;
+    margin-bottom: 22px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .preview-note b { color: #fff; }
+  .preview-note .dot { width: 8px; height: 8px; border-radius: 50%; background: #818CF8; margin-top: 6px; flex: none; box-shadow: 0 0 0 4px rgba(129,140,248,.25); }
+
+  /* ===== Top bar ===== */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; }
+  .logo {
+    width: 42px; height: 42px; border-radius: 13px; flex: none;
+    background: linear-gradient(140deg, #6366F1, #4F46E5 55%, #4338CA);
+    display: grid; place-items: center;
+    box-shadow: 0 6px 16px rgba(79,70,229,.32);
+    position: relative;
+  }
+  .logo svg { width: 22px; height: 22px; }
+  .brand h1 { font-size: 18px; font-weight: 700; letter-spacing: -.2px; }
+  .brand p { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .topbar-actions { display: flex; gap: 8px; }
+  .btn-ghost {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink-2);
+    border-radius: 11px; padding: 8px 13px; font-size: 13px; cursor: pointer;
+    box-shadow: var(--shadow-sm); transition: .15s;
+  }
+  .btn-ghost:hover { border-color: #CBD5E1; color: var(--ink); }
+  .btn-ghost svg { width: 15px; height: 15px; }
+
+  /* ===== Hero greeting ===== */
+  .hero {
+    background: linear-gradient(135deg, #4F46E5 0%, #4338CA 48%, #6D28D9 100%);
+    border-radius: var(--radius);
+    padding: 22px 22px 20px;
+    color: #fff; position: relative; overflow: hidden;
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 14px;
+  }
+  .hero::after {
+    content: ""; position: absolute; right: -40px; top: -60px;
+    width: 220px; height: 220px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.18), transparent 70%);
+  }
+  .hero .eyebrow { font-size: 12px; opacity: .82; letter-spacing: .4px; }
+  .hero .line { font-size: 21px; font-weight: 650; margin-top: 4px; line-height: 1.4; max-width: 90%; }
+  .hero .line b { font-weight: 800; }
+  .hero-stats { display: flex; gap: 10px; margin-top: 16px; position: relative; z-index: 1; flex-wrap: wrap; }
+  .stat {
+    flex: 1; min-width: 92px;
+    background: rgba(255,255,255,.14);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,.18);
+    border-radius: 13px; padding: 11px 13px;
+  }
+  .stat .num { font-size: 24px; font-weight: 800; line-height: 1; letter-spacing: -.5px; }
+  .stat .lbl { font-size: 12px; opacity: .85; margin-top: 5px; }
+  .stat.alert { background: rgba(255,255,255,.95); border-color: #fff; }
+  .stat.alert .num { color: var(--red); }
+  .stat.alert .lbl { color: var(--ink-2); opacity: 1; font-weight: 600; }
+
+  /* ===== Input ===== */
+  .input-card {
+    background: var(--card); border-radius: var(--radius); padding: 14px;
+    box-shadow: var(--shadow-md); border: 1px solid var(--line);
+    margin-bottom: 18px;
+  }
+  .input-row { display: flex; gap: 10px; align-items: flex-end; }
+  .input-box {
+    flex: 1; border: 1.5px solid var(--line); border-radius: 13px;
+    padding: 11px 13px; font-size: 14px; color: var(--ink);
+    background: #FBFCFE; min-height: 46px; transition: .15s;
+  }
+  .input-box.focused { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+  .input-box .ph { color: var(--ink-3); }
+  .btn-send {
+    flex: none; background: var(--primary); color: #fff; border: none;
+    border-radius: 13px; padding: 12px 18px; font-size: 14px; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    box-shadow: 0 6px 14px rgba(79,70,229,.30); transition: .15s;
+  }
+  .btn-send:hover { background: var(--primary-deep); }
+  .btn-send svg { width: 16px; height: 16px; }
+  .input-hint { font-size: 12px; color: var(--ink-3); margin-top: 9px; padding-left: 3px; }
+
+  /* ===== Section ===== */
+  .section { margin-bottom: 20px; }
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; padding: 0 3px; }
+  .section-head h2 { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .section-head h2 .ic { width: 18px; height: 18px; color: var(--primary); }
+  .section-head a { font-size: 13px; color: var(--primary); text-decoration: none; font-weight: 500; }
+
+  /* ===== Briefing blocks ===== */
+  .block { border-radius: var(--radius); padding: 15px 16px; margin-bottom: 11px; box-shadow: var(--shadow-sm); }
+  .block-label { font-size: 12px; font-weight: 700; letter-spacing: .3px; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 9px; }
+  .block-label .pill-ic { width: 16px; height: 16px; }
+
+  /* top priority */
+  .block.priority {
+    background: linear-gradient(135deg, var(--primary-soft), #F6F4FF);
+    border: 1px solid #DDD9FB;
+  }
+  .block.priority .block-label { color: var(--primary-deep); }
+  .priority-task { display: flex; align-items: center; gap: 11px; }
+  .priority-rank {
+    width: 34px; height: 34px; border-radius: 10px; flex: none;
+    background: var(--primary); color: #fff; font-weight: 800; font-size: 15px;
+    display: grid; place-items: center; box-shadow: 0 4px 10px rgba(79,70,229,.3);
+  }
+  .priority-task .t-main { flex: 1; }
+  .priority-task .t-title { font-size: 15px; font-weight: 650; color: var(--ink); }
+  .priority-task .t-meta { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+  .tag-s { background: var(--primary); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 7px; }
+
+  /* overdue */
+  .block.overdue { background: var(--red-soft); border: 1px solid #FECDD3; }
+  .block.overdue .block-label { color: var(--red); }
+  .overdue-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px dashed #FBC4CC; }
+  .overdue-item:first-of-type { border-top: none; }
+  .overdue-item .o-title { flex: 1; font-size: 14px; color: var(--ink); }
+  .overdue-item .o-days { font-size: 11px; font-weight: 700; color: var(--red); background: #fff; padding: 2px 8px; border-radius: 7px; border: 1px solid #FECDD3; flex: none; }
+  .mini-btns { display: flex; gap: 6px; flex: none; }
+  .mini-btn { font-size: 12px; padding: 5px 10px; border-radius: 9px; border: 1px solid #FECDD3; background: #fff; color: var(--red); cursor: pointer; font-weight: 500; }
+  .mini-btn.solid { background: var(--red); color: #fff; border-color: var(--red); }
+
+  /* today list */
+  .block.today { background: #fff; border: 1px solid var(--line); }
+  .block.today .block-label { color: var(--ink-2); }
+  .today-item { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #F1F3F8; }
+  .today-item:first-of-type { border-top: none; }
+  .today-item .dot-time { font-size: 11px; color: var(--primary); font-weight: 700; width: 46px; flex: none; }
+  .today-item .ti-title { flex: 1; font-size: 14px; }
+  .check-circle { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #CBD5E1; flex: none; cursor: pointer; }
+
+  /* ===== Task cards ===== */
+  .task-grid { display: grid; gap: 11px; }
+  .card {
+    background: var(--card); border-radius: var(--radius); padding: 15px 16px;
+    border: 1px solid var(--line); box-shadow: var(--shadow-sm); transition: .15s;
+  }
+  .card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .card-top { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .chip { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 8px; }
+  .chip.work { background: #EFF6FF; color: #1D4ED8; }
+  .chip.money { background: var(--green-soft); color: var(--green); }
+  .chip.life { background: var(--amber-soft); color: var(--amber); }
+  .chip-status { font-size: 11px; padding: 3px 9px; border-radius: 8px; background: #EEF2FF; color: var(--primary-deep); font-weight: 600; }
+  .chip-status.wait { background: var(--amber-soft); color: var(--amber); }
+  .chip-prio { font-size: 11px; color: var(--ink-3); margin-left: auto; font-weight: 600; }
+  .card h3 { font-size: 15px; font-weight: 650; margin-top: 10px; color: var(--ink); }
+  .card .c-meta { font-size: 12.5px; color: var(--ink-2); margin-top: 6px; }
+  .card .c-progress { font-size: 13px; color: var(--ink-2); background: #F6F8FC; border-radius: 10px; padding: 8px 11px; margin-top: 9px; border-left: 3px solid var(--primary); }
+  .card-actions { display: flex; gap: 8px; margin-top: 13px; align-items: center; }
+  .ca { font-size: 13px; padding: 7px 13px; border-radius: 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-weight: 500; border: 1px solid var(--line); background: #fff; color: var(--ink-2); }
+  .ca svg { width: 15px; height: 15px; }
+  .ca.primary { background: var(--primary-soft); border-color: #D6D2F7; color: var(--primary-deep); }
+  .ca.done { color: var(--green); border-color: #BBF7D0; background: var(--green-soft); }
+  .ca.del { margin-left: auto; border: none; color: var(--ink-3); padding: 7px 9px; }
+
+  .footer-tip { text-align: center; font-size: 12px; color: var(--ink-3); margin-top: 30px; }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 16px 13px 50px; }
+    .hero .line { font-size: 18px; max-width: 100%; }
+    .stat .num { font-size: 21px; }
+    .input-row { flex-direction: column; align-items: stretch; }
+    .btn-send { justify-content: center; }
+    .brand h1 { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="preview-note">
+    <span class="dot"></span>
+    <div><b>改版预览（用的是你界面上的真实内容）</b><br/>
+    设计方向：现代 AI 产品感 + 商务质感，手机/电脑都适配。颜色延续你原来的主色 #4F46E5。看完告诉我哪里要调，满意我再落到真代码里。</div>
+  </div>
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a4 4 0 0 0-4 4v1a4 4 0 0 0-1 7.87"/><path d="M12 3a4 4 0 0 1 4 4v1a4 4 0 0 1 1 7.87"/><path d="M9 21h6"/><path d="M12 16v5"/></svg>
+      </div>
+      <div>
+        <h1>AI 秘书</h1>
+        <p>boss@mede-in-ai.com</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        全部任务
+      </button>
+      <button class="btn-ghost">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        退出
+      </button>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="eyebrow">早上好 · 6月16日 星期二</div>
+    <div class="line">今天有 <b>2 件重点</b> 要先抓，另外 <b>11 件逾期</b> 在等你拍板。</div>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="num">0</div>
+        <div class="lbl">今日已完成</div>
+      </div>
+      <div class="stat">
+        <div class="num">1</div>
+        <div class="lbl">进行中</div>
+      </div>
+      <div class="stat alert">
+        <div class="num">11</div>
+        <div class="lbl">逾期待处理</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="input-card">
+    <div class="input-row">
+      <div class="input-box focused"><span class="ph">说一句话，我帮你拆成待办，例如：明天下午提醒我给客户报价</span></div>
+      <button class="btn-send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        发送
+      </button>
+    </div>
+    <div class="input-hint">💡 直接说人话就行，时间、分类、优先级我来帮你判断</div>
+  </div>
+
+  <!-- Secretary briefing -->
+  <div class="section">
+    <div class="section-head">
+      <h2>
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="M12 18v4"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83"/><circle cx="12" cy="12" r="4"/></svg>
+        秘书简报
+      </h2>
+    </div>
+
+    <!-- top priority -->
+    <div class="block priority">
+      <div class="block-label">
+        <svg class="pill-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18"/><path d="M5 4h13l-2 4 2 4H5"/></svg>
+        最该先干这件
+      </div>
+      <div class="priority-task">
+        <div class="priority-rank">1</div>
+        <div class="t-main">
+          <div class="t-title">跟家莹沟通 C 电的事情</div>
+          <div class="t-meta">工作 · 相关人：家莹 · 今天 14:00 前</div>
+        </div>
+        <span class="tag-s">S 级</span>
+      </div>
+    </div>
+
+    <!-- overdue -->
+    <div class="block overdue">
+      <div class="block-label">
+        <svg class="pill-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        逾期了，要不要处理一下（11 件，先看最急的 2 件）
+      </div>
+      <div class="overdue-item">
+        <span class="o-title">给供应商确认补货数量</span>
+        <span class="o-days">逾期 3 天</span>
+        <div class="mini-btns">
+          <button class="mini-btn solid">我来处理</button>
+          <button class="mini-btn">明天再说</button>
+        </div>
+      </div>
+      <div class="overdue-item">
+        <span class="o-title">小红书 6 月排期内容定稿</span>
+        <span class="o-days">逾期 1 天</span>
+        <div class="mini-btns">
+          <button class="mini-btn solid">我来处理</button>
+          <button class="mini-btn">明天再说</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- today -->
+    <div class="block today">
+      <div class="block-label">
+        <svg class="pill-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        今日待办
+      </div>
+      <div class="today-item">
+        <span class="dot-time">14:00</span>
+        <span class="ti-title">跟家莹沟通 C 电的事情</span>
+        <span class="check-circle"></span>
+      </div>
+      <div class="today-item">
+        <span class="dot-time">17:30</span>
+        <span class="ti-title">复盘抖音昨天的投流数据</span>
+        <span class="check-circle"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent tasks -->
+  <div class="section">
+    <div class="section-head">
+      <h2>
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        最近任务
+      </h2>
+      <a href="#">查看全部 ›</a>
+    </div>
+
+    <div class="task-grid">
+      <div class="card">
+        <div class="card-top">
+          <span class="chip work">工作</span>
+          <span class="chip-status wait">等回复</span>
+          <span class="chip-prio">优先级 S</span>
+        </div>
+        <h3>跟家莹沟通 C 电的事情</h3>
+        <div class="c-meta">目标：确认 C 电合作的供货价和账期</div>
+        <div class="c-meta">相关人：家莹 · 下次跟进：6月16日 14:00</div>
+        <div class="c-progress">进展：已发消息，等对方今天给报价</div>
+        <div class="card-actions">
+          <button class="ca primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+            回复进展
+          </button>
+          <button class="ca done">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            完成
+          </button>
+          <button class="ca del">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="chip money">财务</span>
+          <span class="chip-status">进行中</span>
+          <span class="chip-prio">优先级 A</span>
+        </div>
+        <h3>复盘抖音昨天的投流数据</h3>
+        <div class="c-meta">目标：找出 ROI 低的计划，决定是否关停</div>
+        <div class="c-meta">下次跟进：今天 17:30</div>
+        <div class="card-actions">
+          <button class="ca primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+            回复进展
+          </button>
+          <button class="ca done">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            完成
+          </button>
+          <button class="ca del">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <span class="chip life">生活</span>
+          <span class="chip-status">待处理</span>
+          <span class="chip-prio">优先级 B</span>
+        </div>
+        <h3>给供应商确认补货数量</h3>
+        <div class="c-meta">下次跟进：6月17日 10:00</div>
+        <div class="card-actions">
+          <button class="ca primary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18l7-5 7 5V3z"/></svg>
+            开始做
+          </button>
+          <button class="ca done">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            完成
+          </button>
+          <button class="ca del">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-tip">这是一张静态预览图，按钮还不能点 · 确认风格后我把它做成真正能用的界面</div>
+
+</div>
+</body>
+</html>

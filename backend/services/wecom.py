@@ -104,7 +104,6 @@ def send_wecom(
 
 
 def build_reminder_markdown(task: dict) -> str:
-    goal = task.get("goal") or "未填写"
     remind_time = task.get("remind_time") or "未设置"
     status = task.get("status") or "pending"
     task_id = task.get("id", "")
@@ -115,7 +114,6 @@ def build_reminder_markdown(task: dict) -> str:
     return (
         "## AI秘书督办提醒\n"
         f"> 任务：{task.get('content', '未命名任务')}\n"
-        f"> 目标：{goal}\n"
         f"> 截止时间：{remind_time}\n"
         f"> 当前状态：{status}\n\n"
         "请直接在应用里回复进展：\n"

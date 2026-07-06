@@ -10,9 +10,6 @@ export default function ParsePreview({ parsed, open, onCancel, onConfirm, onPick
     remind_time: '',
     priority: 1,
     priority_level: 'B',
-    goal: '',
-    success_criteria: '',
-    related_person: '',
   })
 
   useEffect(() => {
@@ -23,9 +20,6 @@ export default function ParsePreview({ parsed, open, onCancel, onConfirm, onPick
         remind_time: parsed.remind_time || '',
         priority: 1,
         priority_level: parsed.priority_level || 'B',
-        goal: parsed.goal || '',
-        success_criteria: parsed.success_criteria || '',
-        related_person: parsed.related_person || '',
       })
     }
   }, [parsed])
@@ -52,18 +46,6 @@ export default function ParsePreview({ parsed, open, onCancel, onConfirm, onPick
             <select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2">
               {categories.map((category) => <option key={category}>{category}</option>)}
             </select>
-          </label>
-          <label className="block text-sm font-medium text-slate-700">
-            目标
-            <input value={form.goal} onChange={(event) => setForm({ ...form, goal: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" />
-          </label>
-          <label className="block text-sm font-medium text-slate-700">
-            完成标准
-            <input value={form.success_criteria} onChange={(event) => setForm({ ...form, success_criteria: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" />
-          </label>
-          <label className="block text-sm font-medium text-slate-700">
-            相关人
-            <input value={form.related_person} onChange={(event) => setForm({ ...form, related_person: event.target.value })} className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2" />
           </label>
           <label className="block text-sm font-medium text-slate-700">
             优先级

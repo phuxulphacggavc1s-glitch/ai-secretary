@@ -22,3 +22,27 @@ body {
 button, input, textarea, select {
   font: inherit;
 }
+
+/* 秘书头像表情 */
+@keyframes sec-blink {
+  0%, 91%, 100% { transform: scaleY(1); }
+  94% { transform: scaleY(0.12); }
+}
+@keyframes sec-orbit {
+  from { transform: rotate(0deg) translateX(2px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(2px) rotate(-360deg); }
+}
+.sec-avatar .sec-eye {
+  animation: sec-blink 4.4s ease-in-out infinite;
+  transform-origin: center;
+}
+.sec-avatar .sec-eye:last-child { animation-delay: 0.05s; }
+.sec-pupil-orbit { display: block; }
+.sec-thinking .sec-pupil-orbit { animation: sec-orbit 1.1s linear infinite; }
+.sec-thinking .sec-eye { animation: none; }
+.sec-mouth { transition: transform 0.25s ease; transform-origin: center top; }
+.sec-happy .sec-mouth { transform: scale(1.4); }
+.sec-happy .sec-eye {
+  animation: none;
+  transform: scaleY(0.55) translateY(1px);
+}

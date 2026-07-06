@@ -15,3 +15,12 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 WECOM_WEBHOOK_URL = os.getenv("WECOM_WEBHOOK_URL")
 WECOM_PHONE_MAP_JSON = os.getenv("WECOM_PHONE_MAP_JSON", "{}")
+
+# 企业微信自建应用（双向对话）
+WECOM_CORP_ID = os.getenv("WECOM_CORP_ID")
+WECOM_APP_SECRET = os.getenv("WECOM_APP_SECRET")
+WECOM_APP_AGENT_ID = os.getenv("WECOM_APP_AGENT_ID")
+WECOM_APP_TOKEN = os.getenv("WECOM_APP_TOKEN")
+WECOM_APP_AES_KEY = os.getenv("WECOM_APP_AES_KEY")
+# 企业微信成员账号 -> 应用内用户ID 的映射，如 {"YiXu": "supabase-user-uuid"}
+WECOM_APP_USER_MAP = os.getenv("WECOM_APP_USER_MAP", "{}")

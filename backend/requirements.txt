@@ -11,3 +11,4 @@ httpx==0.27.0
 pytz==2024.1
 pytest==8.2.1
 slowapi==0.1.9
+pycryptodome==3.20.0

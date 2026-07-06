@@ -24,9 +24,6 @@ class TaskConfirm(BaseModel):
     category: str = "其他"
     remind_time: Optional[datetime] = None
     priority: int = Field(default=1, ge=1, le=3)
-    goal: Optional[str] = Field(default=None, max_length=500)
-    success_criteria: Optional[str] = Field(default=None, max_length=500)
-    related_person: Optional[str] = Field(default=None, max_length=100)
     next_action: Optional[str] = Field(default=None, max_length=500)
     next_follow_time: Optional[datetime] = None
     priority_level: PriorityLevel = PriorityLevel.B
@@ -37,9 +34,6 @@ class TaskUpdate(BaseModel):
     content: Optional[str] = None
     category: Optional[str] = None
     remind_time: Optional[datetime] = None
-    goal: Optional[str] = Field(default=None, max_length=500)
-    success_criteria: Optional[str] = Field(default=None, max_length=500)
-    related_person: Optional[str] = Field(default=None, max_length=100)
     next_action: Optional[str] = Field(default=None, max_length=500)
     next_follow_time: Optional[datetime] = None
     priority_level: Optional[PriorityLevel] = None
@@ -66,3 +60,7 @@ class CheckinBody(BaseModel):
 
 class ReplyBody(BaseModel):
     reply_text: str = Field(min_length=1, max_length=1000)
+
+
+class ChatBody(BaseModel):
+    message: str = Field(min_length=1, max_length=500)

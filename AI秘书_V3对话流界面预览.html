@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 秘书 V3 界面预览 — 对话流首页</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #eef0f6; color: #0f172a; padding: 32px 16px 64px;
+  }
+  .stage { max-width: 980px; margin: 0 auto; }
+  .stage-title { text-align: center; font-size: 22px; font-weight: 800; }
+  .stage-sub { text-align: center; font-size: 13px; color: #64748b; margin: 8px 0 28px; }
+  .screens { display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
+  .phone {
+    width: 400px; background: #f8fafc; border-radius: 28px; border: 1px solid #e2e8f0;
+    box-shadow: 0 18px 44px rgba(15,23,42,.10); padding: 18px 14px 22px; position: relative;
+  }
+  .phone-label {
+    position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+    background: #0f172a; color: #fff; font-size: 12px; font-weight: 600;
+    border-radius: 999px; padding: 5px 14px; white-space: nowrap;
+  }
+  .tag-new {
+    display: inline-block; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;
+    font-size: 10px; font-weight: 700; border-radius: 6px; padding: 1px 6px; vertical-align: 2px; margin-left: 6px;
+  }
+  header.app { display: flex; align-items: center; gap: 10px; padding: 4px 4px 14px; }
+  .logo {
+    width: 42px; height: 42px; border-radius: 14px; color: #fff; font-size: 20px;
+    background: linear-gradient(135deg, #6366f1, #4338ca);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 16px rgba(79,70,229,.32);
+  }
+  .app-name { font-size: 17px; font-weight: 800; }
+  .app-mail { font-size: 11px; color: #94a3b8; }
+  .nav { margin-left: auto; display: flex; gap: 6px; }
+  .nav span {
+    font-size: 12px; color: #475569; background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 6px 10px;
+  }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; }
+
+  .chat { overflow: hidden; }
+  .chat-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; gap: 8px; }
+  .row.user { justify-content: flex-end; }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%; flex: none; color: #fff; font-size: 13px;
+    background: linear-gradient(135deg, #6366f1, #4338ca);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .bubble { max-width: 82%; padding: 10px 13px; font-size: 13.5px; line-height: 1.65; }
+  .bubble.ai { background: #f1f5f9; color: #1e293b; border-radius: 14px 14px 14px 5px; }
+  .bubble.me { background: #4f46e5; color: #fff; border-radius: 14px 14px 5px 14px; }
+  .time { font-size: 10px; margin-top: 4px; opacity: .55; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 34px; }
+  .chips span {
+    font-size: 12px; color: #4338ca; background: #eef2ff; border: 1px solid #e0e7ff;
+    border-radius: 999px; padding: 6px 12px; cursor: pointer;
+  }
+  .chat-input {
+    display: flex; gap: 8px; align-items: center; border-top: 1px solid #f1f5f9; padding: 10px 12px;
+  }
+  .chat-input .field {
+    flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 10px 12px; font-size: 13px; color: #94a3b8;
+  }
+  .send-btn {
+    width: 38px; height: 38px; border-radius: 12px; background: #4f46e5; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+    box-shadow: 0 6px 14px rgba(79,70,229,.30);
+  }
+
+  .stats { margin-top: 14px; padding: 14px; }
+  .stats-head { font-size: 11px; color: #94a3b8; margin-bottom: 10px; }
+  .stats-row { display: flex; gap: 8px; }
+  .stat { flex: 1; border-radius: 14px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
+  .stat b { display: block; font-size: 21px; font-weight: 800; }
+  .stat i { font-style: normal; font-size: 11px; color: #64748b; }
+  .stat.alert { background: #fff1f2; border-color: #fecdd3; }
+  .stat.alert b { color: #e11d48; } .stat.alert i { color: #f43f5e; font-weight: 600; }
+
+  .prio { margin-top: 14px; padding: 14px; background: linear-gradient(135deg, #eef2ff, #f5f3ff); border-color: #e0e7ff; }
+  .prio-head { font-size: 13px; font-weight: 700; color: #4338ca; margin-bottom: 10px; }
+  .prio-row { display: flex; align-items: center; gap: 10px; }
+  .prio-num {
+    width: 34px; height: 34px; border-radius: 12px; background: #4f46e5; color: #fff;
+    font-weight: 800; display: flex; align-items: center; justify-content: center; flex: none;
+  }
+  .prio-title { font-size: 14px; font-weight: 600; }
+  .prio-meta { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .prio-badge {
+    margin-left: auto; background: #4f46e5; color: #fff; font-size: 11px; font-weight: 700;
+    border-radius: 8px; padding: 4px 8px; flex: none;
+  }
+
+  .warn { margin-top: 14px; padding: 14px; background: #fffbeb; border-color: #fde68a; }
+  .warn-head { font-size: 13px; font-weight: 700; color: #b45309; margin-bottom: 8px; }
+  .warn-item { background: #fff; border: 1px solid #fef3c7; border-radius: 12px; padding: 9px 12px; font-size: 13px; }
+  .warn-item small { display: block; color: #94a3b8; font-size: 11px; margin-top: 2px; }
+
+  .modal-mask {
+    border-radius: 22px; background: rgba(2,6,23,.45); padding: 26px 18px; margin-top: 6px;
+  }
+  .modal { background: #fff; border-radius: 16px; padding: 18px; }
+  .modal h3 { font-size: 16px; margin-bottom: 4px; }
+  .modal .hint { font-size: 12px; color: #4338ca; background: #eef2ff; border-radius: 8px; padding: 8px 10px; margin: 10px 0 4px; }
+  .f { margin-top: 12px; }
+  .f label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; }
+  .f .input {
+    border: 1px solid #cbd5e1; border-radius: 9px; padding: 9px 11px; font-size: 13.5px; color: #0f172a;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .f .input em { font-style: normal; color: #94a3b8; font-size: 12px; }
+  .f2 { display: flex; gap: 10px; } .f2 .f { flex: 1; margin-top: 12px; }
+  .timebox { background: #f8fafc; border-radius: 10px; padding: 10px 12px; margin-top: 12px; }
+  .timebox b { font-size: 12px; color: #475569; display: block; }
+  .timebox span { font-size: 13.5px; }
+  .timebox a { font-size: 12px; color: #4f46e5; text-decoration: none; display: inline-block; margin-top: 4px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .btn-ghost { font-size: 13.5px; color: #64748b; padding: 9px 14px; }
+  .btn-primary {
+    font-size: 13.5px; color: #fff; background: #4f46e5; border-radius: 9px; padding: 9px 16px; font-weight: 600;
+  }
+  .removed { margin-top: 14px; padding: 14px; background: #fff; }
+  .removed h4 { font-size: 12px; color: #94a3b8; font-weight: 600; margin-bottom: 8px; }
+  .removed .old {
+    display: inline-block; font-size: 12px; color: #94a3b8; text-decoration: line-through;
+    background: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px; padding: 5px 10px; margin: 0 6px 6px 0;
+  }
+  .note {
+    max-width: 680px; margin: 34px auto 0; background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 14px; padding: 16px 20px; font-size: 13px; color: #475569; line-height: 1.9;
+  }
+  .note b { color: #0f172a; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="stage-title">AI 秘书 · V3 界面预览（草稿）</div>
+  <div class="stage-sub">左：新首页「对话流」 · 右：精简后的待办确认弹窗 · 尚未上线，仅供确认样式</div>
+
+  <div class="screens">
+
+    <div class="phone">
+      <div class="phone-label">新首页：秘书主动开口<span class="tag-new">NEW</span></div>
+      <header class="app">
+        <div class="logo">🤖</div>
+        <div>
+          <div class="app-name">AI 秘书</div>
+          <div class="app-mail">yi@lefitsport.com</div>
+        </div>
+        <div class="nav"><span>任务</span><span>复盘</span></div>
+      </header>
+
+      <div class="card chat">
+        <div class="chat-body">
+          <div class="row">
+            <div class="avatar">🤖</div>
+            <div>
+              <div class="bubble ai">早上好！今天有 3 件重点。最要紧的是「给供应商打款」，今天 15:00 截止。<br><br>另外「客户报价」等回复已经超时 2 天了——要不要我记一条催办？<div class="time">08:12</div></div>
+            </div>
+          </div>
+          <div class="chips"><span>先催报价</span><span>今天先做什么</span><span>帮我记个待办</span></div>
+          <div class="row user">
+            <div class="bubble me">明天下午提醒我给客户寄样品<div class="time">08:14</div></div>
+          </div>
+          <div class="row">
+            <div class="avatar">🤖</div>
+            <div class="bubble ai">这条我帮你整理成待办了，确认一下内容和时间 →<div class="time">08:14</div></div>
+          </div>
+        </div>
+        <div class="chat-input">
+          <div class="field">记待办、问建议、汇报进展，直接说人话</div>
+          <div class="send-btn">➤</div>
+        </div>
+      </div>
+
+      <div class="card stats">
+        <div class="stats-head">✦ 今日概况 · 7月6日 星期一</div>
+        <div class="stats-row">
+          <div class="stat"><b>2</b><i>今日已完成</i></div>
+          <div class="stat"><b>3</b><i>进行中</i></div>
+          <div class="stat alert"><b>1</b><i>逾期待处理</i></div>
+        </div>
+      </div>
+
+      <div class="card prio">
+        <div class="prio-head">⚑ 最该先干这件</div>
+        <div class="prio-row">
+          <div class="prio-num">1</div>
+          <div>
+            <div class="prio-title">给供应商打款</div>
+            <div class="prio-meta">财务 · 7月6日 15:00</div>
+          </div>
+          <div class="prio-badge">S 级</div>
+        </div>
+      </div>
+
+      <div class="card warn">
+        <div class="warn-head">⏰ 等回复超时，要不要催一下</div>
+        <div class="warn-item">客户报价确认<small>优先级 A · 超时 2 天</small></div>
+      </div>
+    </div>
+
+    <div class="phone">
+      <div class="phone-label">确认弹窗：7 项精简成 4 项<span class="tag-new">NEW</span></div>
+      <div class="modal-mask">
+        <div class="modal">
+          <h3>AI 已解析</h3>
+          <div class="hint">时间不明确——这件事需要什么时候提醒你？</div>
+          <div class="f">
+            <label>内容</label>
+            <div class="input">给客户寄样品</div>
+          </div>
+          <div class="f2">
+            <div class="f">
+              <label>分类</label>
+              <div class="input">工作 <em>▾</em></div>
+            </div>
+            <div class="f">
+              <label>优先级</label>
+              <div class="input">A 级 <em>▾</em></div>
+            </div>
+          </div>
+          <div class="timebox">
+            <b>提醒时间</b>
+            <span>2026-07-07 15:00</span><br>
+            <a href="#">设置时间</a>
+          </div>
+          <div class="modal-actions">
+            <div class="btn-ghost">取消</div>
+            <div class="btn-primary">确认保存</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card removed">
+        <h4>这三个字段已彻底删掉（不再需要填）</h4>
+        <span class="old">目标</span><span class="old">完成标准</span><span class="old">相关人</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>改动逻辑：</b>原来的大紫色横幅问候，换成了秘书真的「开口说话」——同样的信息（今天几件事、哪件最急），但变成可以直接回复、追问、让它记录的对话。快捷回复气泡是 AI 根据你当天的任务动态生成的，不是写死的按钮。下方「今日概况 / 最该先干 / 催办 / 最近任务」保持原有位置，只是配色收敛成白底。<br>
+    <b>看完请拍板：</b>① 对话气泡配色和字号 OK 吗？② 快捷回复气泡要不要保留？③「今日概况」放在对话框下面还是上面？
+  </div>
+</div>
+</body>
+</html>
