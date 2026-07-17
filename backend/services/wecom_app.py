@@ -6,6 +6,8 @@ from database import supabase
 from services.followup import ensure_next_follow
 from services.secretary_chat import chat
 from services.wecom_delivery import resolve_supabase_user_id, send_app_text
+from services.wecom_inbound import mark_inbound_failed, mark_inbound_processed, reserve_inbound_message
+from services.wecom_reply import process_pending_task_reply
 
 
 def _create_task_from_parsed(user_id: str, parsed: dict) -> dict | None:
@@ -36,8 +38,8 @@ def _create_task_from_parsed(user_id: str, parsed: dict) -> dict | None:
     return task
 
 
-def handle_incoming_text(wecom_userid: str, text: str) -> None:
-    """后台任务：处理企业微信里用户发来的一句话，并把秘书回复推回去。"""
+def handle_incoming_text(wecom_userid: str, text: str, msg_id: str) -> None:
+    """后台任务：处理企业微信消息，并把秘书回复推回去。"""
     text = (text or "").strip()[:500]
     if not text:
         return
@@ -51,30 +53,43 @@ def handle_incoming_text(wecom_userid: str, text: str) -> None:
         )
         return
 
-    try:
-        result = chat(user_id, text)
-    except Exception as exc:
-        print(f"wecom chat failed for {wecom_userid}: {exc}")
-        send_app_text(wecom_userid, "刚才处理出错了，稍后再试一次。")
+    if not reserve_inbound_message(msg_id, user_id, wecom_userid, text):
         return
 
-    if result.get("intent") == "create_task" and result.get("parsed"):
-        task = _create_task_from_parsed(user_id, result["parsed"])
-        if task:
-            remind = task.get("remind_time")
-            remind_text = (
-                f"提醒时间 {remind[:16].replace('T', ' ')}"
-                if remind
-                else "没识别到具体时间，暂未设提醒——需要的话回我一句「明天上午9点提醒」重新记一条"
-            )
-            reply = (
-                f"✅ 已记下：{task['content']}"
-                f"（{task.get('category', '其他')} · {task.get('priority_level', 'B')}级）\n"
-                f"{remind_text}"
-            )
-        else:
-            reply = "这条待办没记成功，请再说一遍。"
-    else:
-        reply = result.get("reply") or "我在，你说。"
+    try:
+        handled = process_pending_task_reply(user_id, text)
+        if handled and handled.get("handled"):
+            send_app_text(wecom_userid, handled["reply"])
+            mark_inbound_processed(msg_id, user_id)
+            return
 
-    send_app_text(wecom_userid, reply)
+        result = chat(user_id, text)
+
+        if result.get("intent") == "create_task" and result.get("parsed"):
+            task = _create_task_from_parsed(user_id, result["parsed"])
+            if task:
+                remind = task.get("remind_time")
+                remind_text = (
+                    f"提醒时间 {remind[:16].replace('T', ' ')}"
+                    if remind
+                    else "没识别到具体时间，暂未设提醒——需要的话回我一句「明天上午9点提醒」重新记一条"
+                )
+                reply = (
+                    f"✅ 已记下：{task['content']}"
+                    f"（{task.get('category', '其他')} · {task.get('priority_level', 'B')}级）\n"
+                    f"{remind_text}"
+                )
+            else:
+                reply = "这条待办没记成功，请再说一遍。"
+        else:
+            reply = result.get("reply") or "我在，你说。"
+
+        send_app_text(wecom_userid, reply)
+        mark_inbound_processed(msg_id, user_id)
+    except Exception as exc:
+        print(f"wecom message processing failed for {wecom_userid}: {exc}")
+        try:
+            mark_inbound_failed(msg_id, user_id, str(exc))
+        except Exception as receipt_exc:
+            print(f"wecom receipt update failed for {wecom_userid}: {receipt_exc}")
+        send_app_text(wecom_userid, "刚才处理出错了，稍后再试一次。")

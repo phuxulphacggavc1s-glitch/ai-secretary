@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+from hashlib import sha256
 import xml.etree.ElementTree as ET
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
@@ -36,6 +37,15 @@ async def verify_url(
     return PlainTextResponse(plain)
 
 
+def _message_id(message: ET.Element, from_user: str, content: str) -> str:
+    msg_id = message.findtext("MsgId")
+    if msg_id:
+        return msg_id
+    create_time = message.findtext("CreateTime") or ""
+    raw = f"{from_user}|{create_time}|{content}".encode("utf-8")
+    return sha256(raw).hexdigest()
+
+
 @router.post("/callback")
 async def receive_message(
     request: Request,
@@ -62,7 +72,8 @@ async def receive_message(
     if msg_type == "text" and from_user:
         content = message.findtext("Content") or ""
         # 企业微信要求 5 秒内响应；先回空包，后台处理完用应用消息推回去
-        background_tasks.add_task(handle_incoming_text, from_user, content)
+        msg_id = _message_id(message, from_user, content)
+        background_tasks.add_task(handle_incoming_text, from_user, content, msg_id)
     elif from_user:
         background_tasks.add_task(_reply_unsupported, from_user, msg_type)
 

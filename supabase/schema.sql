@@ -94,6 +94,21 @@ create index idx_secretary_outreach_user_created
 create index idx_secretary_outreach_task_status
   on public.secretary_outreach(task_id, status, created_at desc);
 
+create table public.wecom_inbound_messages (
+  id uuid primary key default gen_random_uuid(),
+  msg_id text not null unique,
+  user_id uuid references public.users(id) on delete cascade not null,
+  wecom_userid text not null,
+  content text not null,
+  status text not null default 'processing'
+    check (status in ('processing', 'processed', 'failed')),
+  failure_reason text,
+  processed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index idx_wecom_inbound_user_created
+  on public.wecom_inbound_messages(user_id, created_at desc);
+
 create table public.daily_reports (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.users(id) on delete cascade not null,
@@ -110,6 +125,7 @@ alter table public.daily_reports enable row level security;
 alter table public.users enable row level security;
 alter table public.task_events enable row level security;
 alter table public.secretary_outreach enable row level security;
+alter table public.wecom_inbound_messages enable row level security;
 
 create policy "Users can only see own tasks"
   on public.tasks for all using (auth.uid() = user_id);
@@ -125,3 +141,6 @@ create policy "Users see own task_events"
 
 create policy "own secretary outreach"
   on public.secretary_outreach for all using (auth.uid() = user_id);
+
+create policy "own wecom inbound messages"
+  on public.wecom_inbound_messages for all using (auth.uid() = user_id);
