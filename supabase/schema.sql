@@ -40,6 +40,7 @@ create table public.tasks (
   next_follow_time timestamp with time zone,
   last_checkin_at timestamp with time zone,
   snooze_until timestamp with time zone,
+  followup_paused boolean not null default false,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
@@ -64,6 +65,35 @@ create table public.task_events (
 );
 create index idx_task_events_task on public.task_events(task_id, created_at desc);
 
+create table public.secretary_outreach (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references public.users(id) on delete cascade not null,
+  task_id uuid references public.tasks(id) on delete cascade,
+  kind text not null check (kind in (
+    'morning_briefing',
+    'task_followup',
+    's_escalation',
+    'evening_review'
+  )),
+  content text not null,
+  status text not null default 'pending' check (status in (
+    'pending',
+    'sent',
+    'failed',
+    'replied',
+    'expired'
+  )),
+  wecom_userid text,
+  failure_reason text,
+  sent_at timestamptz,
+  replied_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index idx_secretary_outreach_user_created
+  on public.secretary_outreach(user_id, created_at desc);
+create index idx_secretary_outreach_task_status
+  on public.secretary_outreach(task_id, status, created_at desc);
+
 create table public.daily_reports (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.users(id) on delete cascade not null,
@@ -79,6 +109,7 @@ alter table public.tasks enable row level security;
 alter table public.daily_reports enable row level security;
 alter table public.users enable row level security;
 alter table public.task_events enable row level security;
+alter table public.secretary_outreach enable row level security;
 
 create policy "Users can only see own tasks"
   on public.tasks for all using (auth.uid() = user_id);
@@ -91,3 +122,6 @@ create policy "Users can see own profile"
 
 create policy "Users see own task_events"
   on public.task_events for all using (auth.uid() = user_id);
+
+create policy "own secretary outreach"
+  on public.secretary_outreach for all using (auth.uid() = user_id);

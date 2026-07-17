@@ -207,23 +207,9 @@ def test_build_briefing_includes_waiting_overdue_and_blocked(monkeypatch):
     assert briefing["stats"]["blocked"] == 1
 
 
-def test_push_morning_briefing_sends_wecom(monkeypatch):
+def test_push_morning_briefing_uses_bound_user_app(monkeypatch):
     sent = []
-
-    class FakeUsersQuery:
-        def select(self, _columns):
-            return self
-
-        def execute(self):
-            return type("Result", (), {"data": [{"id": "user-1"}]})()
-
-    class FakeSupabase:
-        def table(self, name):
-            assert name == "users"
-            return FakeUsersQuery()
-
-    monkeypatch.setattr(secretary, "supabase", FakeSupabase())
-    monkeypatch.setattr(secretary, "build_briefing", lambda user_id: {
+    briefing = {
         "greeting": "早上好，今天有 1 件重点，0 件逾期",
         "stats": {"waiting_overdue": 0, "blocked": 0},
         "top_priority": {"content": "跟进报价"},
@@ -231,11 +217,20 @@ def test_push_morning_briefing_sends_wecom(monkeypatch):
         "overdue": [],
         "waiting_overdue": [],
         "blocked": [],
-    })
-    monkeypatch.setattr(secretary, "resolve_webhook", lambda user_id: "https://example.com")
-    monkeypatch.setattr(secretary, "send_wecom", lambda webhook, markdown: sent.append(markdown) or True)
+    }
+    monkeypatch.setattr(secretary, "bound_user_ids", lambda: ["user-1"])
+    monkeypatch.setattr(secretary, "build_briefing", lambda _user_id: briefing)
+    monkeypatch.setattr(
+        secretary,
+        "send_secretary_message",
+        lambda user_id, content, kind, task_id=None: sent.append(
+            (user_id, content, kind, task_id)
+        )
+        or {"sent": True, "outreach_id": "out-1", "reason": None},
+    )
 
     secretary.push_morning_briefing()
 
-    assert sent
-    assert "跟进报价" in sent[0]
+    assert sent[0][0] == "user-1"
+    assert sent[0][2:] == ("morning_briefing", None)
+    assert "跟进报价" in sent[0][1]

@@ -8,8 +8,9 @@ from openai import OpenAI
 from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from constants import EventType, TaskStatus
 from database import supabase
+from services.outreach import send_secretary_message
 from services.persona import SECRETARY_PERSONA
-from services.wecom import build_reminder_markdown, resolve_mentioned_mobiles, resolve_webhook, send_wecom
+from services.wecom_delivery import bound_user_ids
 
 
 JUDGE_SYSTEM_PROMPT = SECRETARY_PERSONA + """
@@ -106,7 +107,11 @@ def judge_reply(task: dict, reply_text: str) -> dict:
         return parsed
     except Exception as exc:
         result = _fallback_judge(reply_text)
-        result["ai_raw"] = {"source": "fallback", "error": str(exc), "reply_text": reply_text}
+        result["ai_raw"] = {
+            "source": "fallback",
+            "error": str(exc),
+            "reply_text": reply_text,
+        }
         return result
 
 
@@ -126,69 +131,112 @@ def _postpone_follow_time(value: str | None) -> str:
     return (base + timedelta(days=1)).isoformat()
 
 
-def scan_followups() -> None:
-    now = _now().isoformat()
+def build_followup_text(task: dict, s_level: bool = False) -> str:
+    prefix = "【S级事项二次确认】" if s_level else "【AI秘书跟进】"
+    return (
+        f"{prefix}\n{task.get('content', '未命名任务')}\n"
+        "现在进展怎么样？直接回复：完成了 / 等对方回复 / 卡住了 / 明天继续。"
+    )
+
+
+def _due_followup_for_user(user_id: str, now: str) -> dict | None:
     result = (
         supabase.table("tasks")
         .select("*")
+        .eq("user_id", user_id)
+        .eq("followup_paused", False)
         .lte("next_follow_time", now)
         .neq("status", TaskStatus.DONE.value)
         .neq("status", TaskStatus.CANCELLED.value)
+        .order("priority", desc=True)
+        .order("next_follow_time")
+        .limit(1)
         .execute()
     )
+    return result.data[0] if result.data else None
 
-    for task in result.data or []:
-        sent = send_wecom(
-            resolve_webhook(task["user_id"]),
-            build_reminder_markdown(task),
-            mentioned_mobiles=resolve_mentioned_mobiles(task["user_id"]),
+
+def scan_followups() -> None:
+    now = _now().isoformat()
+    for user_id in bound_user_ids():
+        task = _due_followup_for_user(user_id, now)
+        if not task:
+            continue
+
+        delivery = send_secretary_message(
+            user_id,
+            build_followup_text(task),
+            "task_followup",
+            task_id=task["id"],
         )
+        if not delivery["sent"]:
+            continue
+
         next_follow_time = _postpone_follow_time(task.get("next_follow_time"))
-        if sent:
-            supabase.table("task_events").insert(
-                {
-                    "task_id": task["id"],
-                    "user_id": task["user_id"],
-                    "event_type": EventType.REMINDER_SENT.value,
-                    "note": "followup reminder sent",
-                }
-            ).execute()
-        supabase.table("tasks").update(
-            {"next_follow_time": next_follow_time}
-        ).eq("id", task["id"]).eq("user_id", task["user_id"]).execute()
+        (
+            supabase.table("tasks")
+            .update({"next_follow_time": next_follow_time})
+            .eq("id", task["id"])
+            .eq("user_id", user_id)
+            .execute()
+        )
         supabase.table("task_events").insert(
             {
                 "task_id": task["id"],
-                "user_id": task["user_id"],
+                "user_id": user_id,
+                "event_type": EventType.REMINDER_SENT.value,
+                "note": "followup reminder sent via wecom app",
+            }
+        ).execute()
+        supabase.table("task_events").insert(
+            {
+                "task_id": task["id"],
+                "user_id": user_id,
                 "event_type": EventType.FOLLOW_GENERATED.value,
                 "note": f"next_follow_time postponed to {next_follow_time}",
             }
         ).execute()
 
 
-def escalate_s_level() -> None:
-    now = _now().isoformat()
+def _due_s_task_for_user(user_id: str, now: str) -> dict | None:
     result = (
         supabase.table("tasks")
         .select("*")
+        .eq("user_id", user_id)
         .eq("priority_level", "S")
+        .eq("followup_paused", False)
         .lte("remind_time", now)
         .neq("status", TaskStatus.DONE.value)
         .neq("status", TaskStatus.CANCELLED.value)
+        .order("priority", desc=True)
+        .order("remind_time")
+        .limit(1)
         .execute()
     )
-    for task in result.data or []:
-        sent = send_wecom(
-            resolve_webhook(task["user_id"]),
-            build_reminder_markdown(task),
-            mentioned_mobiles=resolve_mentioned_mobiles(task["user_id"]),
+    return result.data[0] if result.data else None
+
+
+def escalate_s_level() -> None:
+    now = _now().isoformat()
+    for user_id in bound_user_ids():
+        task = _due_s_task_for_user(user_id, now)
+        if not task:
+            continue
+
+        delivery = send_secretary_message(
+            user_id,
+            build_followup_text(task, s_level=True),
+            "s_escalation",
+            task_id=task["id"],
         )
-        if sent:
-            supabase.table("task_events").insert(
-                {
-                    "task_id": task["id"],
-                    "user_id": task["user_id"],
-                    "event_type": EventType.REMINDER_SENT.value,
-                    "note": "S级任务晚间二次提醒",
-                }
-            ).execute()
+        if not delivery["sent"]:
+            continue
+
+        supabase.table("task_events").insert(
+            {
+                "task_id": task["id"],
+                "user_id": user_id,
+                "event_type": EventType.REMINDER_SENT.value,
+                "note": "S级任务晚间二次提醒（企业微信自建应用）",
+            }
+        ).execute()

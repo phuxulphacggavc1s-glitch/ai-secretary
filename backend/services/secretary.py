@@ -2,7 +2,8 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from database import supabase
-from services.wecom import resolve_webhook, send_wecom
+from services.outreach import send_secretary_message
+from services.wecom_delivery import bound_user_ids
 
 
 DEFAULT_TIMEZONE = "Asia/Shanghai"
@@ -151,11 +152,10 @@ def build_morning_briefing_markdown(briefing: dict) -> str:
 
 
 def push_morning_briefing() -> None:
-    users = supabase.table("users").select("id").execute()
-    for user in users.data or []:
-        user_id = user["id"]
+    for user_id in bound_user_ids():
         try:
             briefing = build_briefing(user_id)
-            send_wecom(resolve_webhook(user_id), build_morning_briefing_markdown(briefing))
+            content = build_morning_briefing_markdown(briefing)
+            send_secretary_message(user_id, content, "morning_briefing")
         except Exception as exc:
             print(f"Morning briefing failed for user {user_id}: {exc}")
