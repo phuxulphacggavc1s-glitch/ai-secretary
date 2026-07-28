@@ -44,6 +44,12 @@ class FakeSupabase:
 def test_send_secretary_message_records_success(monkeypatch):
     table = FakeOutreachTable()
     monkeypatch.setattr(outreach, "supabase", FakeSupabase(table))
+    monkeypatch.setattr(
+        outreach,
+        "evaluate_outreach",
+        lambda **_kwargs: {"allowed": True, "reason": None},
+        raising=False,
+    )
     monkeypatch.setattr(outreach, "resolve_wecom_userid", lambda _uid: "User")
     monkeypatch.setattr(outreach, "send_app_text", lambda _wid, _content: True)
 
@@ -69,6 +75,12 @@ def test_send_secretary_message_records_success(monkeypatch):
 def test_send_secretary_message_records_missing_mapping(monkeypatch):
     table = FakeOutreachTable()
     monkeypatch.setattr(outreach, "supabase", FakeSupabase(table))
+    monkeypatch.setattr(
+        outreach,
+        "evaluate_outreach",
+        lambda **_kwargs: {"allowed": True, "reason": None},
+        raising=False,
+    )
     monkeypatch.setattr(outreach, "resolve_wecom_userid", lambda _uid: None)
 
     result = outreach.send_secretary_message(
@@ -89,3 +101,34 @@ def test_send_secretary_message_records_missing_mapping(monkeypatch):
 def test_send_secretary_message_rejects_unknown_kind():
     with pytest.raises(ValueError, match="unsupported outreach kind"):
         outreach.send_secretary_message("user-1", "测试", "unknown")
+
+
+def test_policy_denial_does_not_send_or_create_outreach(monkeypatch):
+    table = FakeOutreachTable()
+    monkeypatch.setattr(outreach, "supabase", FakeSupabase(table))
+    monkeypatch.setattr(
+        outreach,
+        "evaluate_outreach",
+        lambda **_kwargs: {"allowed": False, "reason": "距离上次主动联系不足3小时"},
+        raising=False,
+    )
+    monkeypatch.setattr(
+        outreach,
+        "send_app_text",
+        lambda *_args: (_ for _ in ()).throw(AssertionError("must not send")),
+    )
+
+    result = outreach.send_secretary_message(
+        "user-1",
+        "继续跟进",
+        "task_followup",
+        task_id="task-2",
+    )
+
+    assert result == {
+        "sent": False,
+        "outreach_id": None,
+        "reason": "距离上次主动联系不足3小时",
+        "skipped": True,
+    }
+    assert table.rows == []

@@ -1,6 +1,9 @@
 """企业微信自建应用回调消息的业务处理。"""
 from __future__ import annotations
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 from constants import EventType, PRIORITY_INT_MAP
 from database import supabase
 from services.followup import ensure_next_follow
@@ -8,6 +11,22 @@ from services.secretary_chat import chat
 from services.wecom_delivery import resolve_supabase_user_id, send_app_text
 from services.wecom_inbound import mark_inbound_failed, mark_inbound_processed, reserve_inbound_message
 from services.wecom_reply import process_pending_task_reply
+
+
+DEFAULT_TIMEZONE = "Asia/Shanghai"
+
+
+def format_remind_time(value: str | None) -> str:
+    if not value:
+        return "没识别到具体时间，暂未设提醒——需要的话回我一句「明天上午9点提醒」重新记一条"
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=ZoneInfo(DEFAULT_TIMEZONE))
+        local_time = parsed.astimezone(ZoneInfo(DEFAULT_TIMEZONE))
+        return f"提醒时间 {local_time:%Y-%m-%d %H:%M}"
+    except (TypeError, ValueError):
+        return f"提醒时间 {value[:16].replace('T', ' ')}"
 
 
 def _create_task_from_parsed(user_id: str, parsed: dict) -> dict | None:
@@ -68,12 +87,7 @@ def handle_incoming_text(wecom_userid: str, text: str, msg_id: str) -> None:
         if result.get("intent") == "create_task" and result.get("parsed"):
             task = _create_task_from_parsed(user_id, result["parsed"])
             if task:
-                remind = task.get("remind_time")
-                remind_text = (
-                    f"提醒时间 {remind[:16].replace('T', ' ')}"
-                    if remind
-                    else "没识别到具体时间，暂未设提醒——需要的话回我一句「明天上午9点提醒」重新记一条"
-                )
+                remind_text = format_remind_time(task.get("remind_time"))
                 reply = (
                     f"✅ 已记下：{task['content']}"
                     f"（{task.get('category', '其他')} · {task.get('priority_level', 'B')}级）\n"

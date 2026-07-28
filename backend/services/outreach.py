@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from database import supabase
+from services.proactive_policy import evaluate_outreach
 from services.wecom_delivery import resolve_wecom_userid, send_app_text
 
 
@@ -24,9 +25,24 @@ def send_secretary_message(
     content: str,
     kind: str,
     task_id: str | None = None,
+    explicit_reminder: bool = False,
 ) -> dict:
     if kind not in VALID_KINDS:
         raise ValueError(f"unsupported outreach kind: {kind}")
+
+    decision = evaluate_outreach(
+        user_id=user_id,
+        kind=kind,
+        task_id=task_id,
+        explicit_reminder=explicit_reminder,
+    )
+    if not decision["allowed"]:
+        return {
+            "sent": False,
+            "outreach_id": None,
+            "reason": decision["reason"],
+            "skipped": True,
+        }
 
     wecom_userid = resolve_wecom_userid(user_id)
     created = supabase.table("secretary_outreach").insert(

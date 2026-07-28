@@ -4,6 +4,13 @@ from routers import wecom
 from services import wecom_app
 
 
+def test_remind_time_is_displayed_in_shanghai_timezone():
+    assert (
+        wecom_app.format_remind_time("2026-07-28T16:54:00+00:00")
+        == "提醒时间 2026-07-29 00:54"
+    )
+
+
 def test_duplicate_message_stops_before_chat(monkeypatch):
     monkeypatch.setattr(wecom_app, "resolve_supabase_user_id", lambda _wid: "user-1")
     monkeypatch.setattr(wecom_app, "reserve_inbound_message", lambda *_args: False)

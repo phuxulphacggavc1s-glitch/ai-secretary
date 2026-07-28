@@ -128,7 +128,24 @@ def ensure_next_follow(task: dict) -> dict:
 
 def _postpone_follow_time(value: str | None) -> str:
     base = datetime.fromisoformat((value or _now().isoformat()).replace("Z", "+00:00"))
-    return (base + timedelta(days=1)).isoformat()
+    current = _now()
+    if base.tzinfo is None and current.tzinfo is not None:
+        base = base.replace(tzinfo=current.tzinfo)
+    anchor = max(base, current)
+    return (anchor + timedelta(days=1)).isoformat()
+
+
+def _is_recent_explicit_reminder(task: dict, now: datetime) -> bool:
+    if task.get("reminded") or not task.get("remind_time"):
+        return False
+    try:
+        remind_at = datetime.fromisoformat(task["remind_time"].replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return False
+    if remind_at.tzinfo is None and now.tzinfo is not None:
+        remind_at = remind_at.replace(tzinfo=now.tzinfo)
+    age = now - remind_at
+    return timedelta(0) <= age <= timedelta(minutes=15)
 
 
 def build_followup_text(task: dict, s_level: bool = False) -> str:
@@ -148,8 +165,8 @@ def _due_followup_for_user(user_id: str, now: str) -> dict | None:
         .lte("next_follow_time", now)
         .neq("status", TaskStatus.DONE.value)
         .neq("status", TaskStatus.CANCELLED.value)
+        .order("next_follow_time", desc=True)
         .order("priority", desc=True)
-        .order("next_follow_time")
         .limit(1)
         .execute()
     )
@@ -157,43 +174,55 @@ def _due_followup_for_user(user_id: str, now: str) -> dict | None:
 
 
 def scan_followups() -> None:
-    now = _now().isoformat()
+    now_value = _now()
+    now = now_value.isoformat()
     for user_id in bound_user_ids():
         task = _due_followup_for_user(user_id, now)
         if not task:
             continue
 
+        explicit_reminder = _is_recent_explicit_reminder(task, now_value)
+        send_kwargs = {"task_id": task["id"]}
+        if explicit_reminder:
+            send_kwargs["explicit_reminder"] = True
         delivery = send_secretary_message(
             user_id,
             build_followup_text(task),
             "task_followup",
-            task_id=task["id"],
+            **send_kwargs,
         )
-        if not delivery["sent"]:
+        if not delivery["sent"] and not delivery.get("skipped"):
             continue
 
         next_follow_time = _postpone_follow_time(task.get("next_follow_time"))
+        updates = {"next_follow_time": next_follow_time}
+        if delivery["sent"] and explicit_reminder:
+            updates["reminded"] = True
         (
             supabase.table("tasks")
-            .update({"next_follow_time": next_follow_time})
+            .update(updates)
             .eq("id", task["id"])
             .eq("user_id", user_id)
             .execute()
         )
-        supabase.table("task_events").insert(
-            {
-                "task_id": task["id"],
-                "user_id": user_id,
-                "event_type": EventType.REMINDER_SENT.value,
-                "note": "followup reminder sent via wecom app",
-            }
-        ).execute()
+        if delivery["sent"]:
+            supabase.table("task_events").insert(
+                {
+                    "task_id": task["id"],
+                    "user_id": user_id,
+                    "event_type": EventType.REMINDER_SENT.value,
+                    "note": "followup reminder sent via wecom app",
+                }
+            ).execute()
+        followup_note = f"next_follow_time postponed to {next_follow_time}"
+        if delivery.get("skipped"):
+            followup_note += f"; skipped: {delivery.get('reason')}"
         supabase.table("task_events").insert(
             {
                 "task_id": task["id"],
                 "user_id": user_id,
                 "event_type": EventType.FOLLOW_GENERATED.value,
-                "note": f"next_follow_time postponed to {next_follow_time}",
+                "note": followup_note,
             }
         ).execute()
 

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from services import followup
 
 
@@ -47,10 +49,11 @@ class Result:
 
 
 class FakeTaskQuery:
-    def __init__(self, rows, updated, filter_log):
+    def __init__(self, rows, updated, filter_log, order_log):
         self.rows = rows
         self.updated = updated
         self.filter_log = filter_log
+        self.order_log = order_log
         self.payload = None
 
     def select(self, _columns):
@@ -66,7 +69,8 @@ class FakeTaskQuery:
     def neq(self, _column, _value):
         return self
 
-    def order(self, _column, desc=False):
+    def order(self, column, desc=False):
+        self.order_log.append((column, desc))
         return self
 
     def limit(self, _value):
@@ -103,10 +107,11 @@ class FakeSupabase:
         self.updated = []
         self.inserted = []
         self.filters = []
+        self.orders = []
 
     def table(self, name):
         if name == "tasks":
-            return FakeTaskQuery(self.tasks, self.updated, self.filters)
+            return FakeTaskQuery(self.tasks, self.updated, self.filters, self.orders)
         if name == "task_events":
             return FakeEventQuery(self.inserted)
         raise AssertionError(name)
@@ -217,3 +222,92 @@ def test_escalate_s_level_uses_bound_user_app_and_logs(monkeypatch):
     assert ("user_id", "user-1") in db.filters
     assert db.inserted[0]["event_type"] == "reminder_sent"
     assert "S级" in db.inserted[0]["note"]
+
+
+def test_postpone_follow_time_uses_now_when_backlog_is_stale(monkeypatch):
+    fixed_now = datetime(2026, 7, 29, 1, 0, tzinfo=timezone.utc)
+    monkeypatch.setattr(followup, "_now", lambda: fixed_now)
+
+    result = followup._postpone_follow_time("2026-07-10T01:00:00+00:00")
+
+    assert result == "2026-07-30T01:00:00+00:00"
+
+
+def test_due_followup_prefers_most_recent_due_time(monkeypatch):
+    db = FakeSupabase([{"id": "task-1"}])
+    monkeypatch.setattr(followup, "supabase", db)
+
+    followup._due_followup_for_user("user-1", "2026-07-29T01:00:00+00:00")
+
+    assert db.orders[:2] == [("next_follow_time", True), ("priority", True)]
+
+
+def test_scan_followups_postpones_policy_skip_without_reminder_event(monkeypatch):
+    fixed_now = datetime(2026, 7, 29, 1, 0, tzinfo=timezone.utc)
+    db = FakeSupabase(
+        [
+            {
+                "id": "task-old",
+                "user_id": "user-1",
+                "content": "旧积压任务",
+                "status": "pending",
+                "priority": 1,
+                "reminded": False,
+                "remind_time": "2026-07-10T01:00:00+00:00",
+                "next_follow_time": "2026-07-10T01:00:00+00:00",
+                "followup_paused": False,
+            }
+        ]
+    )
+    monkeypatch.setattr(followup, "_now", lambda: fixed_now)
+    monkeypatch.setattr(followup, "supabase", db)
+    monkeypatch.setattr(followup, "bound_user_ids", lambda: ["user-1"])
+    monkeypatch.setattr(
+        followup,
+        "send_secretary_message",
+        lambda *_args, **_kwargs: {
+            "sent": False,
+            "outreach_id": None,
+            "reason": "安静时段",
+            "skipped": True,
+        },
+    )
+
+    followup.scan_followups()
+
+    assert db.updated[0]["next_follow_time"] == "2026-07-30T01:00:00+00:00"
+    assert [event["event_type"] for event in db.inserted] == ["follow_generated"]
+
+
+def test_scan_followups_marks_recent_explicit_reminder_sent(monkeypatch):
+    fixed_now = datetime(2026, 7, 29, 1, 0, tzinfo=timezone.utc)
+    db = FakeSupabase(
+        [
+            {
+                "id": "task-new",
+                "user_id": "user-1",
+                "content": "一分钟提醒测试",
+                "status": "pending",
+                "priority": 1,
+                "reminded": False,
+                "remind_time": "2026-07-29T00:59:00+00:00",
+                "next_follow_time": "2026-07-29T00:59:00+00:00",
+                "followup_paused": False,
+            }
+        ]
+    )
+    sent = []
+
+    def fake_sender(user_id, content, kind, task_id=None, explicit_reminder=False):
+        sent.append((user_id, content, kind, task_id, explicit_reminder))
+        return {"sent": True, "outreach_id": "out-1", "reason": None}
+
+    monkeypatch.setattr(followup, "_now", lambda: fixed_now)
+    monkeypatch.setattr(followup, "supabase", db)
+    monkeypatch.setattr(followup, "bound_user_ids", lambda: ["user-1"])
+    monkeypatch.setattr(followup, "send_secretary_message", fake_sender)
+
+    followup.scan_followups()
+
+    assert sent[0][-1] is True
+    assert db.updated[0]["reminded"] is True
