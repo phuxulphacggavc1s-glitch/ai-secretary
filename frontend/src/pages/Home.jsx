@@ -1,4 +1,4 @@
-import { BarChart3, ChevronRight, LogOut, ListChecks } from 'lucide-react'
+import { BarChart3, ChevronRight, LogOut, ListChecks, Users } from 'lucide-react'
 import SecretaryAvatar from '../components/SecretaryAvatar'
 import { Link } from 'react-router-dom'
 import { checkinTask, createTask, getBriefing, replyTask, snoozeTask } from '../api'
@@ -161,7 +161,7 @@ export default function Home() {
 
   return (
     <main className="mx-auto min-h-screen max-w-3xl px-4 py-6">
-      <header className="flex items-center justify-between gap-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <SecretaryAvatar size={44} />
           <div>
@@ -170,6 +170,9 @@ export default function Home() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Link to="/delegations" title="委派任务" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600">
+            <Users size={16} /><span className="hidden sm:inline">委派</span>
+          </Link>
           <Link
             to="/tasks"
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-soft transition hover:border-slate-300 hover:text-slate-900"

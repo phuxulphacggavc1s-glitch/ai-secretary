@@ -11,6 +11,7 @@ from services.secretary_chat import chat
 from services.wecom_delivery import resolve_supabase_user_id, send_app_text
 from services.wecom_inbound import mark_inbound_failed, mark_inbound_processed, reserve_inbound_message
 from services.wecom_reply import process_pending_task_reply
+from services.delegation_entry import handle_delegation_message
 
 
 DEFAULT_TIMEZONE = "Asia/Shanghai"
@@ -64,6 +65,9 @@ def handle_incoming_text(wecom_userid: str, text: str, msg_id: str) -> None:
         return
 
     user_id = resolve_supabase_user_id(wecom_userid)
+    if handle_delegation_message(wecom_userid, text, msg_id):
+        return
+
     if not user_id:
         send_app_text(
             wecom_userid,

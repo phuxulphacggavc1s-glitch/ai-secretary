@@ -24,3 +24,6 @@ WECOM_APP_TOKEN = os.getenv("WECOM_APP_TOKEN")
 WECOM_APP_AES_KEY = os.getenv("WECOM_APP_AES_KEY")
 # 企业微信成员账号 -> 应用内用户ID 的映射，如 {"YiXu": "supabase-user-uuid"}
 WECOM_APP_USER_MAP = os.getenv("WECOM_APP_USER_MAP", "{}")
+
+# 数据库升级并完成测试后开启，默认不向同事发送。
+WECOM_DELEGATION_ENABLED = os.getenv("WECOM_DELEGATION_ENABLED", "false").lower() == "true"

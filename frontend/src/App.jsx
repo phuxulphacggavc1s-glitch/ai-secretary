@@ -4,6 +4,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import Reports from './pages/Reports'
 import Tasks from './pages/Tasks'
+import Delegations from './pages/Delegations'
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
         <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+        <Route path="/delegations" element={<ProtectedRoute><Delegations /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   )

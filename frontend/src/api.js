@@ -70,3 +70,13 @@ export const searchSecretaryMessages = (q) =>
 
 export const getSummaryReport = (period) =>
   api.get('/reports/summary', { params: { period } }).then((response) => response.data)
+
+export const listColleagues = () => api.get('/delegation/colleagues').then(r => r.data)
+export const saveColleague = data => api.post('/delegation/colleagues', data).then(r => r.data)
+export const editColleague = (id,data) => api.patch(`/delegation/colleagues/${id}`,data).then(r => r.data)
+export const listDelegations = () => api.get('/delegation/tasks').then(r => r.data)
+export const createDelegation = data => api.post('/delegation/tasks',data).then(r => r.data)
+export const parseDelegation = raw_input => api.post('/delegation/parse',{raw_input}).then(r => r.data)
+export const actOnDelegation = (id,action,content) => api.post(`/delegation/tasks/${id}/action`,{action,content}).then(r => r.data)
+export const delegationEvents = id => api.get(`/delegation/tasks/${id}/events`).then(r => r.data)
+export const delegationSettings = () => api.get('/delegation/settings').then(r => r.data)

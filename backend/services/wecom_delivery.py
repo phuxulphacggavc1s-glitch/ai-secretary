@@ -1,6 +1,8 @@
 """企业微信自建应用的用户映射、access token 与文本发送。"""
 from __future__ import annotations
 
+from services.delegation_delivery import send_delegation_text
+
 import json
 import time
 
