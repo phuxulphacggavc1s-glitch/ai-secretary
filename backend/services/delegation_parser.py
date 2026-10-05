@@ -20,15 +20,29 @@ def parse_delay(text):
 
 
 def is_delegation_request(text):
-    return bool(re.search(r"(给|让).*(下达|委派|安排).*(任务|事项)", text)
-                or re.search(r"(下达|委派)任务.*给", text))
+    if (re.search(r"(给|让).*(下达|委派|安排).*(任务|事项)", text)
+            or re.search(r"(下达|委派)任务.*给", text)):
+        return True
+    # Only inspect the request clause; message content may itself contain negation.
+    request = re.split(r"[，,。；;：:\n]", text, maxsplit=1)[0]
+    intent = re.search(
+        r"(?:给|向)(?!我|自己).+?发(?:送)?(?:一条|条|个)?(?:消息|信息|通知)"
+        r"|(?:通知|告知)(?!我|自己).+", request,
+    )
+    if not intent:
+        return False
+    prefix = request[:intent.start()]
+    return not re.search(
+        r"提醒(?:一下|下)?我|我(?:自己|来)|不要|不用|别|取消|已经|刚才|刚刚",
+        prefix,
+    )
 
 def parse_delegation(text, colleagues, now=None):
     if not DEEPSEEK_API_KEY:
         raise DelegationError("AI解析暂不可用，请在委派页面手动填写")
     now = now or datetime.now(timezone.utc)
     names = [{"name": c["name"], "aliases": c.get("aliases") or []} for c in colleagues if c.get("active", True)]
-    prompt = """你是中文秘书，只解析给同事安排未来任务的请求，不执行发送。
+    prompt = """你是中文秘书，只解析给同事安排未来任务或发送消息、通知的请求，不执行发送。
 返回JSON：colleague_name、content、scheduled_at、due_at。
 scheduled_at是到点请负责人批准的时间；due_at是同事完成截止时间，没有则null。
 时间用带+08:00时区的ISO8601。明天上午默认09:00，下午默认15:00。

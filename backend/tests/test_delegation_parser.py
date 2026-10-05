@@ -9,6 +9,32 @@ def test_candidate_requires_delegation_intent():
     assert parser.is_delegation_request("明天给张三安排一个任务")
     assert not parser.is_delegation_request("提醒我给张三打电话")
 
+@pytest.mark.parametrize("text", [
+    "一分钟后给刘颖发消息，通知她今天加班",
+    "1分钟后给刘颖发送消息：通知她今天加班",
+    "明天上午给刘颖发一条消息，让她整理数据",
+    "明天上午向刘颖发送通知：整理数据",
+    "明天上午通知刘颖今天加班",
+    "明天下午告知刘颖会议改期",
+    "明天给刘颖发消息，告诉她不要加班",
+])
+def test_message_and_notification_requests_are_delegations(text):
+    assert parser.is_delegation_request(text)
+
+@pytest.mark.parametrize("text", [
+    "提醒我明天给刘颖发消息，通知她今天加班",
+    "明天提醒一下我通知刘颖加班",
+    "明天我自己给刘颖发消息",
+    "明天我来通知刘颖加班",
+    "刘颖给我发消息了",
+    "一分钟后给我发消息，提醒我加班",
+    "不要给刘颖发消息，通知她今天加班",
+    "我已经给刘颖发消息，通知她今天加班",
+    "刚才通知刘颖今天加班了",
+])
+def test_personal_reminders_and_past_messages_are_not_delegations(text):
+    assert not parser.is_delegation_request(text)
+
 def test_parser_resolves_only_supplied_colleague(monkeypatch):
     class Completions:
         def create(self, **kwargs):

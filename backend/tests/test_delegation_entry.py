@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from datetime import timedelta
 
 def test_api_requires_timezone_on_scheduled_time(monkeypatch, env):
     prepare(monkeypatch, env)
@@ -60,3 +61,32 @@ def test_api_is_authenticated_and_approve_is_disabled_by_default(monkeypatch, en
 def test_unknown_sender_falls_back_without_access(monkeypatch, env):
     prepare(monkeypatch, env)
     assert not entry.handle_delegation_message("Stranger", "完成", "msg-x")
+
+def test_message_request_waits_for_owner_approval(monkeypatch, env):
+    service = prepare(monkeypatch, env)
+    _, db, sent, current, colleague = env
+    text = "一分钟后给刘颖发消息，通知她今天加班"
+    replies = []
+    monkeypatch.setattr(entry, "send_app_text", lambda recipient, reply: replies.append(reply))
+    monkeypatch.setattr(entry, "parse_delegation", lambda raw, colleagues: {
+        "colleague_id": colleague["id"], "content": "今天加班",
+        "scheduled_at": (current[0] + timedelta(minutes=1)).isoformat(), "due_at": None,
+    })
+    assert entry.handle_delegation_message("Owner", text, "message-request")
+    task = db.rows["delegated_tasks"][0]
+    assert "已安排委派" in replies[0]
+    assert sent == []
+    current[0] += timedelta(minutes=1)
+    service.scan("u1")
+    assert [recipient for recipient, _ in sent] == ["Owner"]
+    assert entry.handle_delegation_message("Owner", "同意 " + task["approval_code"], "approve-message")
+    assert entry.handle_delegation_message("Owner", "同意 " + task["approval_code"], "approve-again")
+    assert len([recipient for recipient, _ in sent if recipient == "ZhangSan"]) == 1
+
+def test_message_request_reports_disabled_feature(monkeypatch, env):
+    prepare(monkeypatch, env)
+    monkeypatch.setattr(entry, "WECOM_DELEGATION_ENABLED", False)
+    replies = []
+    monkeypatch.setattr(entry, "send_app_text", lambda recipient, reply: replies.append(reply))
+    assert entry.handle_delegation_message("Owner", "一分钟后给刘颖发消息，通知她今天加班", "disabled-message")
+    assert "尚未启用" in replies[0]
