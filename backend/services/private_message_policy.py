@@ -72,6 +72,8 @@ def parse_time(text, now=None):
         raise PrivateMessageError("请只填写一个明确时刻")
     relative = re.search(r"([0-9零一二两三四五六七八九十]+)(分钟|小时)后", text)
     if relative:
+        if clocks:
+            raise PrivateMessageError("具体时刻和相对时间不能同时使用")
         amount = _number(relative[1])
         if amount <= 0:
             raise PrivateMessageError("定时时间必须在未来")
@@ -121,24 +123,91 @@ def parse_time(text, now=None):
     return "scheduled", result.isoformat()
 
 
+_MESSAGE_PATTERN = re.compile(
+    r"(?:给|向)(?P<name>[^：:\n，,]{1,100}?)(?P<verb>留言|发(?:送)?(?:一条|条|个)?(?:消息|信息|通知|提醒))")
+_NOTICE_PATTERN = re.compile(r"(?:通知|告知)(?P<name>(?!我|自己)[^：:\n，,]{1,100})")
+_TASK_PATTERNS = (
+    r"(?:给|让|向)[^：:\n，,]{1,100}?(?:下达|委派|安排)(?:一个|一项|项|个)?(?:任务|事项)",
+    r"(?:下达|委派|安排)(?:一个|一项|项|个)?(?:任务|事项)[^：:\n，,]*给",
+)
+
+
+def _first_separator(text, punctuation="：:"):
+    clocks = [m.span() for m in re.finditer(r"\d{1,2}[:：]\d{2}", text)]
+    for match in re.finditer("[" + re.escape(punctuation) + "]", text):
+        if not any(start <= match.start() < end for start, end in clocks):
+            return match.start()
+    return -1
+
+
+def _message_match(text):
+    matches = [m for pattern in (_MESSAGE_PATTERN, _NOTICE_PATTERN)
+               if (m := pattern.search(text))]
+    return min(matches, key=lambda m: m.start()) if matches else None
+
+
+def _valid_prefix(text):
+    return not re.search(
+        r"提醒(?:一下|下)?我|我(?:自己|来)|已经|刚才|刚刚|已$|不要|不用|别|取消|"
+        r"(?<!\d)[：:]|[：:](?!\d)", text)
+
+
+def is_formal_task_request(text):
+    text = str(text or "").strip()
+    boundary = _first_separator(text, "：:。；;\n")
+    header = text[:boundary] if boundary >= 0 else text
+    tasks = [m for pattern in _TASK_PATTERNS if (m := re.search(pattern, header))]
+    if not tasks:
+        return False
+    task = min(tasks, key=lambda m: m.end())
+    message = _message_match(header)
+    if message and message.start() <= task.start() and message.end() < task.end():
+        return False
+    return _valid_prefix(header[:task.start()])
+
+
+def _time_suffix(text):
+    if not text.strip(" ，,\t"):
+        return False
+    leftover = re.sub(r"立即|现在|马上|今天|明天|后天|上午|下午|晚上|发送|分钟|小时", "", text)
+    recognizable = re.search(
+        r"立即|现在|马上|今天|明天|后天|[0-9零一二两三四五六七八九十]+[点时]|"
+        r"(?<!\d)\d{1,2}[:：]\d{2}(?!\d)|[0-9零一二两三四五六七八九十]+(?:分钟|小时)后|"
+        r"20\d{2}[-/年]\d{1,2}[-/月]\d{1,2}(?:日)?|(?<!\d)\d{1,2}月\d{1,2}日", text)
+    return bool(recognizable) and not re.search(
+        r"[^0-9零一二两三四五六七八九十年/月日点时分半后:：\-\s，,]", leftover)
+
+
 def parse_request(text, participants, now=None):
     text = str(text)
-    clocks = [m.span() for m in re.finditer(r"\d{1,2}[:：]\d{2}", text)]
-    delimiters = [m.start() for m in re.finditer(r"[：:]", text)
-                  if not any(start <= m.start() < end for start, end in clocks)]
-    if not delimiters:
-        raise PrivateMessageError("请用冒号分开时间、接收人和正文")
-    position = delimiters[0]
-    header, body = text[:position], text[position + 1:]
-    recipient = re.search(r"(?:给|向)(.+?)留言", header)
+    if is_formal_task_request(text):
+        raise PrivateMessageError("正式任务请使用委派入口，消息请明确说发消息或留言")
+    recipient = _message_match(text)
     if not recipient:
         raise PrivateMessageError("请明确给哪位同事留言")
-    name = recipient[1].strip()
-    matches = [p for p in participants if p.get("active", True)
-               and name in [p["name"], *(p.get("aliases") or [])]]
+    if not _valid_prefix(text[:recipient.start()]):
+        raise PrivateMessageError("取消留言请直接回复“取消留言”，其他操作请明确写收件人和发送时间")
+    name = recipient["name"].strip()
+    matches = [p for p in participants if p.get("active", True) and (
+        name in [p["name"], *(p.get("aliases") or [])]
+        or (p.get("wecom_userid") and name.lower() == p["wecom_userid"].lower()))]
     if len(matches) != 1:
         raise PrivateMessageError("接收人未登记、已停用或有同名，请明确姓名")
-    time_header = header[:recipient.start()] + header[recipient.end():]
+    suffix = text[recipient.end():]
+    position = _first_separator(suffix)
+    time_header = text[:recipient.start()]
+    explicit_body = False
+    if position >= 0:
+        tail_header = suffix[:position]
+        if not tail_header.strip(" ，,\t") or _time_suffix(tail_header):
+            time_header += tail_header
+            body = suffix[position + 1:]
+            explicit_body = True
+    if not explicit_body:
+        if recipient.re is _NOTICE_PATTERN:
+            raise PrivateMessageError("请用冒号分开接收人和正文，例如明天9点通知同事：内容")
+        body = suffix.lstrip(" ，,\t")
+        body = re.sub(r"^(?:就说|内容是|内容为)[：:]?", "", body, count=1)
     mode, scheduled = parse_time(time_header, now)
     return {"recipient_id": matches[0]["id"], "content": validate_content(body),
             "delivery_mode": mode, "scheduled_at": scheduled}
@@ -162,15 +231,18 @@ def parse_command(text):
 
 
 def is_private_request(text):
-    text = str(text).strip()
+    text = str(text or "").strip()
     command = parse_command(text)
     if command and text != "收到":
         return True
-    if re.match(r"^\d{4}\s", text):
+    if re.match(r"^\d{4}\s", text) or is_formal_task_request(text):
         return False
-    recipient = re.search(r"(?:给|向)([^：:\n]{1,100}?)留言", text)
+    boundary = _first_separator(text, "：:。；;\n")
+    header = text[:boundary] if boundary >= 0 else text
+    recipient = _message_match(header)
     if not recipient:
         return text.startswith(("私人留言", "留言", "修改留言", "回复留言", "改时留言",
                                 "取消留言", "确认留言"))
-    prefix = text[:recipient.start()]
-    return not re.search(r"提醒(?:一下|下)?我|已经|刚才|刚刚|已$|不要|别|(?<!\d)[：:]|[：:](?!\d)", prefix)
+    prefix = header[:recipient.start()]
+    return (recipient["name"].strip() not in ("我", "自己")
+            and (_valid_prefix(prefix) or prefix.strip().startswith("取消")))

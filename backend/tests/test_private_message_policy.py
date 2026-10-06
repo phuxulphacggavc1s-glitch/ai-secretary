@@ -125,3 +125,100 @@ def test_incomplete_private_note_stays_in_private_route():
 @pytest.mark.parametrize("text", ["修改留言：", "回复留言：", "改时留言：", "取消留言 这条"])
 def test_malformed_private_command_is_not_legacy_input(text):
     assert is_private_request(text)
+
+
+@pytest.mark.parametrize("text, body, scheduled", [
+    ("1分钟后给乙发消息提醒他4点下班", "提醒他4点下班", "2026-10-06T02:01:00+00:00"),
+    ("1分钟后给小乙发送一条消息，就说明天放假", "明天放假", "2026-10-06T02:01:00+00:00"),
+    ("2026-10-07 09:30向乙发送通知：订单1234请跟进", "订单1234请跟进", "2026-10-07T01:30:00+00:00"),
+    ("明天9点通知乙：会议改期", "会议改期", "2026-10-07T01:00:00+00:00"),
+    ("给乙发提醒，立即发送：订单1234不要改写", "订单1234不要改写", None),
+    ("1分钟后给乙发消息订单1234：无需改写", "订单1234：无需改写", "2026-10-06T02:01:00+00:00"),
+])
+def test_natural_notices_are_private_and_keep_body_clock_separate(text, body, scheduled):
+    assert is_private_request(text)
+    result = parse_request(text, PEOPLE, NOW)
+    assert result["recipient_id"] == "b"
+    assert result["content"] == body
+    assert result["scheduled_at"] == scheduled
+
+
+def test_explicit_colon_body_does_not_remove_content_introduction():
+    result = parse_request("1分钟后给乙发消息：内容是1234，不要删", PEOPLE, NOW)
+    assert result["content"] == "内容是1234，不要删"
+
+
+def test_userid_is_exact_and_case_insensitive_not_a_fuzzy_name():
+    people = [{**p, "wecom_userid": p["id"].upper()} for p in PEOPLE]
+    assert parse_request("1分钟后给b发消息：正文", people, NOW)["recipient_id"] == "b"
+    with pytest.raises(PrivateMessageError):
+        parse_request("1分钟后给乙二发消息：正文", people, NOW)
+
+
+@pytest.mark.parametrize("text", [
+    "提醒我明天给乙发消息", "明天我自己给乙发消息", "明天我来通知乙",
+    "我已经给乙发消息了", "不要给乙发消息", "1分钟后给我发消息：正文",
+    "明天9点给乙下达任务：给丙发消息",
+])
+def test_notice_routing_does_not_hijack_personal_or_formal_requests(text):
+    assert not is_private_request(text)
+
+
+def test_task_words_inside_notice_body_do_not_change_route():
+    text = "1分钟后给乙发消息：请下达任务给丙"
+    assert is_private_request(text)
+    assert parse_request(text, PEOPLE, NOW)["content"] == "请下达任务给丙"
+
+
+@pytest.mark.parametrize("text", ["明天上午通知乙今天加班", "明天下午告知乙会议改期"])
+def test_natural_notice_without_separator_or_explicit_clock_fails_privately(text):
+    assert is_private_request(text)
+    with pytest.raises(PrivateMessageError):
+        parse_request(text, PEOPLE, NOW)
+
+@pytest.mark.parametrize("text", ["1分钟后15点", "1小时后14:30"])
+def test_relative_and_absolute_send_time_cannot_be_combined(text):
+    with pytest.raises(PrivateMessageError):
+        parse_time(text, NOW)
+
+@pytest.mark.parametrize("text", [
+    "1分钟后，给乙发消息提醒他4点下班",
+    "1分钟后,给乙发送一条消息：提醒他4点下班",
+])
+def test_separator_between_time_and_recipient_is_supported(text):
+    assert is_private_request(text)
+    data = parse_request(text, PEOPLE, NOW)
+    assert data["content"] == "提醒他4点下班"
+    assert data["scheduled_at"] == "2026-10-06T02:01:00+00:00"
+
+
+def test_comma_after_time_keeps_explicit_formal_task_route():
+    from services.delegation_parser import is_delegation_request
+    text = "明天9点，给乙下达任务：整理数据"
+    assert is_delegation_request(text)
+    assert not is_private_request(text)
+
+def test_body_starting_digits_and_colon_is_not_send_time():
+    parsed = parse_request("立即给乙发消息1234：验证码不要改", PEOPLE, NOW)
+    assert parsed["content"] == "1234：验证码不要改"
+
+
+def test_cancel_sentence_is_claimed_but_never_creates_message():
+    text = "取消1分钟后给乙发消息：不要发送"
+    assert is_private_request(text)
+    with pytest.raises(PrivateMessageError, match="取消留言"):
+        parse_request(text, PEOPLE, NOW)
+
+
+def test_reverse_arrange_task_word_order_is_formal():
+    from services.delegation_parser import is_delegation_request
+    text = "明天9点安排任务给乙：整理数据"
+    assert is_delegation_request(text)
+    assert not is_private_request(text)
+
+@pytest.mark.parametrize("text, body", [
+    ("立即给乙发消息1234-5678：订单编号不要改", "1234-5678：订单编号不要改"),
+    ("1分钟后给乙发消息1234/5678：请核对", "1234/5678：请核对"),
+])
+def test_hyphenated_or_slashed_body_numbers_are_not_time(text, body):
+    assert parse_request(text, PEOPLE, NOW)["content"] == body

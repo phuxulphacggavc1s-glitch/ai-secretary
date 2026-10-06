@@ -117,7 +117,7 @@ export default function Delegations() {
       view==='tasks' ? <div className="border-t border-gray-200">
         {visible.length===0 && <p className="py-14 text-center text-sm text-gray-500">暂无委派任务</p>}
         {[...visible].reverse().map(task=><article key={task.id} className="border-b border-gray-200 py-4">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2"><span className="text-sm font-medium">{task.colleague?.name || '同事'}</span><span className="text-xs text-gray-400">#{task.approval_code}</span><span className={'rounded px-2 py-0.5 text-xs '+(['failed','uncertain','unresponsive'].includes(status(task))?'bg-amber-100 text-amber-900':status(task)==='completed'?'bg-emerald-100 text-emerald-800':'bg-gray-100 text-gray-700')}>{statuses[status(task)]}</span></div>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2"><span className="text-sm font-medium">{task.colleague?.name || '同事'}</span><span className={'rounded px-2 py-0.5 text-xs '+(['failed','uncertain','unresponsive'].includes(status(task))?'bg-amber-100 text-amber-900':status(task)==='completed'?'bg-emerald-100 text-emerald-800':'bg-gray-100 text-gray-700')}>{statuses[status(task)]}</span></div>
           <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{task.content}</p>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-gray-500"><span className="inline-flex items-center gap-1"><Clock size={13}/>下达 {fmt(task.scheduled_at)}</span><span>截止 {fmt(task.due_at)}</span>{task.next_followup_at && <span>下次跟进 {fmt(task.next_followup_at)}</span>}</div>
           {task.paused_reason && <p className="mt-2 break-words text-xs text-amber-800">{task.paused_reason}</p>}

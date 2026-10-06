@@ -37,7 +37,7 @@ const errors=[];
      const id=pathname.split('/').pop();Object.assign(colleagues.find(c=>c.id===id),data);result={colleague:colleagues.find(c=>c.id===id)};
    } else if(pathname.endsWith('/tasks') && request.method()==='GET') result={tasks};
    else if(pathname.endsWith('/tasks') && request.method()==='POST'){
-     const task={...data,id:'t'+(tasks.length+1),approval_code:'2048',colleague:colleagues.find(c=>c.id===data.colleague_id),approval_status:'scheduled',delivery_status:'not_sent',task_status:'not_started'};
+     const task={...data,id:'t'+(tasks.length+1),approval_code:null,colleague:colleagues.find(c=>c.id===data.colleague_id),approval_status:'scheduled',delivery_status:'not_sent',task_status:'not_started'};
      tasks.push(task);result={task};
    } else if(pathname.endsWith('/action')){
      const id=pathname.split('/').at(-2),task=tasks.find(t=>t.id===id);
@@ -54,6 +54,7 @@ const errors=[];
    await page.goto('http://127.0.0.1:5175/delegations');
    await page.getByRole('heading',{name:'委派任务',exact:true}).waitFor();
    await page.getByText('整理本周销售数据并核对渠道回款，今天下午提交完整表格。').waitFor();
+   assert.equal(await page.getByText('#1024',{exact:true}).count(),0,name+' legacy shortcode is visible');
    await page.screenshot({path:path.join(output,'delegations-'+name+'.png'),fullPage:true});
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth);
    assert(!overflow,name+' page overflows');

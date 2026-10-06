@@ -18,8 +18,8 @@ def test_candidate_requires_delegation_intent():
     "明天下午告知刘颖会议改期",
     "明天给刘颖发消息，告诉她不要加班",
 ])
-def test_message_and_notification_requests_are_delegations(text):
-    assert parser.is_delegation_request(text)
+def test_message_and_notification_requests_are_not_formal_delegations(text):
+    assert not parser.is_delegation_request(text)
 
 @pytest.mark.parametrize("text", [
     "提醒我明天给刘颖发消息，通知她今天加班",
@@ -49,3 +49,14 @@ def test_parser_resolves_only_supplied_colleague(monkeypatch):
     with pytest.raises(DelegationError):
         parser.parse_delegation("明天给张三下达任务", [
             {"id":"c1","name":"张三","active":True},{"id":"c2","name":"张三","active":True}])
+
+@pytest.mark.parametrize("text", [
+    "1分钟后给乙发消息提醒他4点下班",
+    "明天9点给乙留言：私密正文",
+    "立即通知乙：订单1234",
+])
+def test_formal_parse_api_never_sends_private_notice_body_to_ai(monkeypatch, text):
+    monkeypatch.setattr(parser, "DEEPSEEK_API_KEY", "test")
+    monkeypatch.setattr(parser, "OpenAI", lambda **kwargs: pytest.fail("private body sent to AI"))
+    with pytest.raises(DelegationError, match="消息"):
+        parser.parse_delegation(text, [{"id": "c1", "name": "乙", "active": True}])

@@ -11,6 +11,7 @@ def test_api_requires_timezone_on_scheduled_time(monkeypatch, env):
         "colleague_id":"1", "content":"整理数据", "scheduled_at":"2026-10-05T09:00:00"})
     assert response.status_code == 422
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from auth import get_current_user
@@ -62,10 +63,10 @@ def test_unknown_sender_falls_back_without_access(monkeypatch, env):
     prepare(monkeypatch, env)
     assert not entry.handle_delegation_message("Stranger", "完成", "msg-x")
 
-def test_message_request_waits_for_owner_approval(monkeypatch, env):
+def test_formal_task_request_waits_for_owner_approval(monkeypatch, env):
     service = prepare(monkeypatch, env)
     _, db, sent, current, colleague = env
-    text = "一分钟后给刘颖发消息，通知她今天加班"
+    text = "一分钟后给刘颖下达任务：今天整理交接资料"
     replies = []
     monkeypatch.setattr(entry, "send_app_text", lambda recipient, reply: replies.append(reply))
     monkeypatch.setattr(entry, "parse_delegation", lambda raw, colleagues: {
@@ -79,14 +80,30 @@ def test_message_request_waits_for_owner_approval(monkeypatch, env):
     current[0] += timedelta(minutes=1)
     service.scan("u1")
     assert [recipient for recipient, _ in sent] == ["Owner"]
-    assert entry.handle_delegation_message("Owner", "同意 " + task["approval_code"], "approve-message")
-    assert entry.handle_delegation_message("Owner", "同意 " + task["approval_code"], "approve-again")
+    assert entry.handle_delegation_message("Owner", "批准任务", "approve-message")
+    assert entry.handle_delegation_message("Owner", "批准任务", "approve-again")
     assert len([recipient for recipient, _ in sent if recipient == "ZhangSan"]) == 1
 
-def test_message_request_reports_disabled_feature(monkeypatch, env):
+def test_formal_task_request_reports_disabled_feature(monkeypatch, env):
     prepare(monkeypatch, env)
     monkeypatch.setattr(entry, "WECOM_DELEGATION_ENABLED", False)
     replies = []
     monkeypatch.setattr(entry, "send_app_text", lambda recipient, reply: replies.append(reply))
-    assert entry.handle_delegation_message("Owner", "一分钟后给刘颖发消息，通知她今天加班", "disabled-message")
+    assert entry.handle_delegation_message("Owner", "一分钟后给刘颖下达任务：今天整理交接资料", "disabled-message")
     assert "尚未启用" in replies[0]
+
+
+def test_notification_request_never_creates_formal_task(monkeypatch, env):
+    prepare(monkeypatch, env)
+    monkeypatch.setattr(entry, "parse_delegation", lambda *_: pytest.fail("notice became a task"))
+    assert not entry.handle_delegation_message("Owner", "1分钟后给刘颖发消息提醒她4点下班", "notice")
+    assert not env[1].rows.get("delegated_tasks")
+
+
+def test_numeric_without_task_menu_does_not_record_progress(monkeypatch, env):
+    service = prepare(monkeypatch, env)
+    task = create(env)
+    service.scan("u1")
+    service.action("u1", task["id"], "approve")
+    assert not entry.handle_delegation_message("ZhangSan", "1", "private-number")
+    assert service.get_task("u1", task["id"])["task_status"] == "awaiting_reply"

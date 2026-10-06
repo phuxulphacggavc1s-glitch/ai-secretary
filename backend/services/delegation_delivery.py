@@ -13,8 +13,7 @@ def send_delegation_text(wecom_userid: str, content: str) -> str:
         # 仅文本发送；空白或无效应用ID也属于明确失败。
         "touser": wecom_userid, "msgtype": "text",
         "agentid": int(delivery.WECOM_APP_AGENT_ID or 0),
-        "text": {"content": content}, "enable_duplicate_check": 1,
-        "duplicate_check_interval": 14400,
+        "text": {"content": content}, "enable_duplicate_check": 0,
     }
     try:
         result = httpx.post(

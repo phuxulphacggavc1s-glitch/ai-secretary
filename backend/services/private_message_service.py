@@ -2,6 +2,8 @@
 from datetime import timedelta
 from uuid import uuid4
 
+from services.wecom_menu import expire_other_menu
+
 from services.private_message_policy import (
     PrivateMessageError, as_time, parse_command, parse_request, parse_time,
     utcnow, validate_content, SHANGHAI,
@@ -150,6 +152,7 @@ class PrivateMessageService:
         return bool(rows)
 
     def menu(self, space, actor, operation, messages, parameters):
+        expire_other_menu(self.db, space, actor["wecom_userid"], "private", self.clock())
         messages = messages[:20]
         saved = {"operation": operation,
                  "candidates": [{"id": m["id"], "version": m["version"]} for m in messages],

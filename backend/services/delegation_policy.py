@@ -14,10 +14,10 @@ def as_time(value):
     return parsed.astimezone(timezone.utc)
 
 def parse_command(text):
-    match = re.fullmatch(r"(同意|确认|取消|不发)(?:\s*(\d{4}))?[。！!]? ", text.strip() + " ")
+    match = re.fullmatch(r"(同意|确认|批准|取消|不发)(?:任务|下达)?(?:\s*(\d{4}))?[。！!]? ", text.strip() + " ")
     if match:
-        return ("approve" if match[1] in ("同意", "确认") else "cancel", match[2], None)
-    match = re.fullmatch(r"修改(?:\s*(\d{4}))?\s*为\s*(.+)", text.strip(), re.S)
+        return ("approve" if match[1] in ("同意", "确认", "批准") else "cancel", match[2], None)
+    match = re.fullmatch(r"修改(?:任务)?(?:\s*(\d{4}))?\s*(?:为|[：:])\s*(.+)", text.strip(), re.S)
     if match:
         return ("modify", match[1], match[2].strip())
     return None
@@ -25,6 +25,8 @@ def parse_command(text):
 def classify_reply(text):
     match = re.fullmatch(r"(\d{4})\s+(.+)", text.strip(), re.S)
     code, body = (match[1], match[2].strip()) if match else (None, text.strip())
+    if body.startswith("任务"):
+        body = body[2:].lstrip("：: ")
     if re.fullmatch(r"(已完成|完成了?|做完了|已做完)[。！!]*", body):
         state = "completed"
     elif re.fullmatch(r"(已收到|收到[了]?|好的|已接收)[。！!]*", body):

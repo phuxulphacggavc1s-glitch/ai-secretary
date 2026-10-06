@@ -1,7 +1,6 @@
 """委派请求的结构化解析，授权仍由确定性命令处理。"""
 from datetime import datetime, timezone
 import json
-import re
 from openai import OpenAI
 from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
 from services.ai_parser import _strip_json_text
@@ -20,29 +19,19 @@ def parse_delay(text):
 
 
 def is_delegation_request(text):
-    if (re.search(r"(给|让).*(下达|委派|安排).*(任务|事项)", text)
-            or re.search(r"(下达|委派)任务.*给", text)):
-        return True
-    # Only inspect the request clause; message content may itself contain negation.
-    request = re.split(r"[，,。；;：:\n]", text, maxsplit=1)[0]
-    intent = re.search(
-        r"(?:给|向)(?!我|自己).+?发(?:送)?(?:一条|条|个)?(?:消息|信息|通知)"
-        r"|(?:通知|告知)(?!我|自己).+", request,
-    )
-    if not intent:
-        return False
-    prefix = request[:intent.start()]
-    return not re.search(
-        r"提醒(?:一下|下)?我|我(?:自己|来)|不要|不用|别|取消|已经|刚才|刚刚",
-        prefix,
-    )
+    from services.private_message_policy import is_formal_task_request
+    return is_formal_task_request(text)
+
 
 def parse_delegation(text, colleagues, now=None):
+    from services.private_message_policy import is_private_request
+    if is_private_request(text):
+        raise DelegationError("消息、留言和通知请通过企业微信消息入口安排，不进入任务AI解析")
     if not DEEPSEEK_API_KEY:
         raise DelegationError("AI解析暂不可用，请在委派页面手动填写")
     now = now or datetime.now(timezone.utc)
     names = [{"name": c["name"], "aliases": c.get("aliases") or []} for c in colleagues if c.get("active", True)]
-    prompt = """你是中文秘书，只解析给同事安排未来任务或发送消息、通知的请求，不执行发送。
+    prompt = """你是中文秘书，只解析明确给同事下达或委派正式工作任务的请求，提醒、留言、发消息和通知由独立消息流程处理，不执行发送。
 返回JSON：colleague_name、content、scheduled_at、due_at。
 scheduled_at是到点请负责人批准的时间；due_at是同事完成截止时间，没有则null。
 时间用带+08:00时区的ISO8601。明天上午默认09:00，下午默认15:00。

@@ -52,7 +52,7 @@ def test_reply_while_followup_fails_is_preserved(env):
     def sender(recipient, text):
         sent.append((recipient, text))
         if recipient == "ZhangSan":
-            service.colleague_reply("u1", "ZhangSan", task["approval_code"] + " 收到", "followup-reply")
+            service.colleague_reply("u1", "ZhangSan", "任务收到", "followup-reply")
             return "uncertain"
         return "sent"
     service.sender = sender
@@ -69,7 +69,7 @@ def test_reply_while_delivery_is_finishing_is_preserved(env):
     def sender(recipient, text):
         sent.append((recipient,text))
         if recipient == "ZhangSan":
-            service.colleague_reply("u1", "ZhangSan", task["approval_code"] + " 收到", "early-reply")
+            service.colleague_reply("u1", "ZhangSan", "任务收到", "early-reply")
         return "sent"
     service.sender = sender
     service.action("u1", task["id"], "approve")
@@ -77,12 +77,12 @@ def test_reply_while_delivery_is_finishing_is_preserved(env):
     assert result["task_status"] == "acknowledged"
     assert result["next_followup_at"] is None
 
-def test_valid_coded_reply_resolves_uncertain_delivery(env):
+def test_explicit_task_reply_resolves_uncertain_delivery(env):
     service, _, _, _, _ = env
     task = create(env); service.scan("u1")
     service.sender = lambda recipient,text: "uncertain" if recipient == "ZhangSan" else "sent"
     service.action("u1", task["id"], "approve")
-    service.colleague_reply("u1", "ZhangSan", task["approval_code"] + " 完成", "proof-of-receipt")
+    service.colleague_reply("u1", "ZhangSan", "任务完成", "proof-of-receipt")
     result = service.get_task("u1", task["id"])
     assert result["delivery_status"] == "sent"
     assert result["task_status"] == "completed"
@@ -104,11 +104,13 @@ def test_disabled_service_never_drains_saved_outbox(env):
     assert len(sent) == before
 
 def test_old_code_cannot_approve_modified_content(env):
-    service, _, sent, _, _ = env
-    task = create(env); service.scan("u1")
+    service, db, sent, _, _ = env
+    task = create(env)
+    db.rows["delegated_tasks"][0]["approval_code"] = "7859"
+    service.scan("u1")
     changed = service.action("u1", task["id"], "modify", "新内容")
-    assert changed["approval_code"] != task["approval_code"]
-    service.owner_command("u1", "同意 " + task["approval_code"])
+    assert changed["approval_code"] is None
+    service.owner_command("u1", "同意 7859")
     assert not [x for x in sent if x[0] == "ZhangSan"]
 
 def test_colleague_delay_updates_deadline(monkeypatch, env):
@@ -161,10 +163,14 @@ class Query:
             row = deepcopy(self.payload)
             if self.name == "delegation_outbox" and any(r["operation_key"] == row["operation_key"] for r in rows):
                 raise ValueError("duplicate")
+            if self.name == "delegation_command_contexts" and any(
+                    r["owner_user_id"] == row["owner_user_id"] and r["actor_userid"] == row["actor_userid"] for r in rows):
+                raise ValueError("duplicate context")
             row.setdefault("id", str(len(rows) + 1))
             rows.append(row)
             return SimpleNamespace(data=[deepcopy(row)])
-        assert any(k == "owner_user_id" for k, _ in self.filters), "owner filter missing"
+        scope = "space_id" if self.name.startswith("private_message") else "owner_user_id"
+        assert any(k == scope for k, _ in self.filters), "scope filter missing"
         matches = [r for r in rows if all(r.get(k) == v for k, v in self.filters)]
         matches = matches[getattr(self, "start", 0):getattr(self, "start", 0)+self.cap]
         if self.mode == "update":
@@ -217,7 +223,7 @@ def test_bare_approval_is_ambiguous_with_two_pending(env):
     service, _, sent, _, _ = env
     create(env); create(env); service.scan("u1")
     result = service.owner_command("u1", "同意")
-    assert "短码" in result
+    assert "1." in result and "2." in result and "短码" not in result
     assert not [x for x in sent if x[0] == "ZhangSan"]
 
 def test_modified_task_requires_fresh_approval(env):

@@ -1,4 +1,5 @@
 from copy import deepcopy
+from uuid import uuid4
 from types import SimpleNamespace
 from datetime import datetime, timezone
 
@@ -11,7 +12,7 @@ class Query:
     def __init__(self, db, name):
         self.db, self.name = db, name
         self.filters, self.mode, self.payload = [], "select", None
-        self.sort, self.desc, self.cap = None, False, 1000
+        self.sort, self.desc, self.cap, self.offset = None, False, 1000, 0
     def select(self, *args): return self
     def eq(self, key, value): self.filters.append((key, "eq", value)); return self
     def is_(self, key, value): self.filters.append((key, "eq", None if value == "null" else value)); return self
@@ -21,6 +22,7 @@ class Query:
     def gte(self, key, value): self.filters.append((key, "gte", value)); return self
     def order(self, key, desc=False): self.sort, self.desc = key, desc; return self
     def limit(self, value): self.cap = value; return self
+    def range(self, first, last): self.offset, self.cap = first, last - first + 1; return self
     def insert(self, payload): self.mode, self.payload = "insert", payload; return self
     def update(self, payload): self.mode, self.payload = "update", payload; return self
     def delete(self): self.mode = "delete"; return self
@@ -30,18 +32,23 @@ class Query:
         if self.mode == "insert":
             payloads = self.payload if isinstance(self.payload, list) else [self.payload]
             for payload in payloads:
-                assert payload.get("space_id"), "insert needs space"
+                payload.setdefault("id", str(uuid4()))
+                payload.setdefault("created_at", NOW.isoformat())
+                assert payload.get("space_id") or payload.get("owner_user_id"), "insert needs scope"
                 unique = {
                     "private_message_outbox": ("operation_key",),
                     "private_message_contexts": ("space_id", "actor_id"),
                     "private_message_threads": ("space_id", "participant_a", "participant_b"),
                     "private_message_inbound": ("space_id", "msg_id"),
+                    "delegation_command_contexts": ("owner_user_id", "actor_userid"),
+                    "delegation_outbox": ("owner_user_id", "operation_key"),
                 }.get(self.name, ("id",))
                 if any(all(r.get(k) == payload.get(k) for k in unique) for r in rows):
                     raise ValueError("duplicate")
                 rows.append(deepcopy(payload))
             return SimpleNamespace(data=deepcopy(payloads))
-        assert any(k == "space_id" and op == "eq" for k, op, _ in self.filters), "space filter missing"
+        scope_key = "space_id" if self.name.startswith("private_") else "owner_user_id"
+        assert any(k == scope_key and op == "eq" for k, op, _ in self.filters), "scope filter missing"
         def match(row):
             for key, op, value in self.filters:
                 actual = row.get(key)
@@ -54,7 +61,7 @@ class Query:
         matches = [row for row in rows if match(row)]
         if self.sort:
             matches.sort(key=lambda r: r.get(self.sort) or "", reverse=self.desc)
-        matches = matches[:self.cap]
+        matches = matches[self.offset:self.offset + self.cap]
         if self.mode == "update":
             for row in matches: row.update(deepcopy(self.payload))
         if self.mode == "delete":

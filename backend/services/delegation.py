@@ -1,8 +1,8 @@
 """委派任务审批、状态与持久化出站队列。"""
 from datetime import datetime, timedelta, timezone
-import secrets
+import re
 from uuid import uuid4
-from services.delegation_policy import SHANGHAI, as_time, approval_expired, followup_due, followup_update, parse_command, classify_reply
+from services.delegation_policy import SHANGHAI, as_time, approval_expired, followup_due, followup_update
 
 class DelegationError(ValueError):
     pass
@@ -75,13 +75,6 @@ class DelegationService:
         self.get_task(owner, task_id)
         return self.query("delegated_task_events", owner).eq("task_id", task_id).order("created_at").execute().data
 
-    def new_code(self, owner):
-        tasks = self.rows("delegated_tasks", owner)
-        used = {code for t in tasks for code in [t["approval_code"], *(t.get("approval_code_history") or [])]}
-        codes = [str(n) for n in range(1000, 10000) if str(n) not in used]
-        if not codes: raise DelegationError("任务短码已用完，请联系维护人员")
-        return secrets.choice(codes)
-
     def create_task(self, owner, data):
         cols = self.query("colleagues", owner).eq("id", data.get("colleague_id")).limit(1).execute().data
         if not cols or not cols[0].get("active", True): raise DelegationError("请选择已启用的同事")
@@ -95,7 +88,7 @@ class DelegationService:
         now = self.clock().isoformat()
         row = dict(id=str(uuid4()), owner_user_id=owner, colleague_id=cols[0]["id"], content=content,
             scheduled_at=scheduled.isoformat(), due_at=due.isoformat() if due else None,
-            approval_code=self.new_code(owner), approval_code_history=[], approval_status="scheduled", delivery_status="not_sent",
+            approval_code=None, approval_code_history=[], approval_status="scheduled", delivery_status="not_sent",
             task_status="not_started", approval_revision=0, approval_requested_at=None, approval_reminded_at=None,
             sent_at=None, next_followup_at=None, followup_count=0, daily_reminder_count=0,
             reminder_count_date=None, last_colleague_reply_at=None, paused_reason=None, version=0,
@@ -113,14 +106,28 @@ class DelegationService:
         return as_time(value).astimezone(SHANGHAI).strftime("%Y-%m-%d %H:%M") if value else "未设置"
 
     def approval_text(self, task):
-        return (f"【待批准下达｜{task['approval_code']}】\n接收人：{self.colleague(task)['name']}\n"
+        return (f"【待批准下达】\n接收人：{self.colleague(task)['name']}\n"
                 f"任务：{task['content']}\n截止：{self.time_text(task.get('due_at'))}\n"
-                f"回复：同意 {task['approval_code']} / 取消 {task['approval_code']} / 修改 {task['approval_code']} 为……")
+                "回复：批准任务 / 取消任务 / 修改任务：新内容")
 
     def dispatch_text(self, task):
-        return (f"【AI秘书代发任务｜{task['approval_code']}】\n任务：{task['content']}\n"
+        return (f"【AI秘书代发任务】\n任务：{task['content']}\n"
                 f"截止：{self.time_text(task.get('due_at'))}\n"
-                f"请回复：{task['approval_code']} 收到 / 完成 / 延期到…… / 进展……")
+                "请回复：任务收到 / 任务完成 / 任务延期到具体时间 / 任务进展：内容")
+
+    def followup_text(self, task):
+        return f"【AI秘书跟进】\n{task['content']}\n请回复：任务收到 / 任务完成 / 任务进展：内容"
+
+    def outbound_text(self, row, task):
+        if row["kind"] in ("approval", "approval_reminder"):
+            return self.approval_text(task)
+        if row["kind"] == "dispatch":
+            return self.dispatch_text(task)
+        if row["kind"] == "followup":
+            return self.followup_text(task)
+        # Only the generated leading control header is rewritten, never body digits.
+        return re.sub(r"^【(委派进展|委派过期|委派异常|已下达|委派未回复)｜[0-9]{4}】",
+                      r"【\1】", row["content"], count=1)
 
     def enqueue(self, task, kind, recipient, text, suffix=""):
         if not recipient: raise DelegationError("负责人尚未绑定企业微信账号")
@@ -140,8 +147,10 @@ class DelegationService:
     def notify(self, task, text, suffix):
         return self.enqueue(task, "notice", self.owner_lookup(task["owner_user_id"]), text, suffix)
 
-    def action(self, owner, task_id, action, content=None):
+    def action(self, owner, task_id, action, content=None, expected_version=None):
         task, now = self.get_task(owner, task_id), self.clock()
+        if expected_version is not None and task["version"] != expected_version:
+            raise DelegationError("任务状态或内容已变化，请重新选择")
         if action == "approve":
             if task["approval_status"] == "approved": return task
             if task["approval_status"] != "pending_approval" or not task.get("approval_requested_at"):
@@ -165,8 +174,9 @@ class DelegationService:
                 raise DelegationError("任务内容过长，请缩短到400字以内")
             changed = self.change(task, dict(content=content, approval_revision=task["approval_revision"] + 1,
                                             approval_requested_at=None, approval_reminded_at=None,
-                                            approval_code=self.new_code(owner),
-                                            approval_code_history=[*(task.get("approval_code_history") or []), task["approval_code"]]))
+                                            approval_code=None,
+                                            approval_code_history=[*(task.get("approval_code_history") or []),
+                                                                   *([task["approval_code"]] if task.get("approval_code") else [])]))
             if changed:
                 self.event(changed, "modified", content, "owner")
                 if changed["approval_status"] == "pending_approval":
@@ -177,38 +187,31 @@ class DelegationService:
                                             next_followup_at=None, paused_reason=None))
             if changed: self.event(changed, action, actor="owner")
         else: raise DelegationError("不支持这个操作")
+        if expected_version is not None and not changed:
+            raise DelegationError("任务状态或内容已变化，请重新选择")
         self.drain(owner)
         return self.get_task(owner, task_id)
 
-    def owner_command(self, owner, text):
-        parsed = parse_command(text)
-        if not parsed: return None
-        action, code, content = parsed
-        tasks = [t for t in self.rows("delegated_tasks", owner)
-                 if (t["approval_code"] == code if code else t["approval_status"] == "pending_approval")]
-        if not tasks: return "没有匹配的委派任务。" if code else None
-        if len(tasks) != 1:
-            return "请带上任务短码回复，例如：同意 1024。\n" + "\n".join(f"{t['approval_code']}：{t['content']}" for t in tasks[:10])
-        try:
-            task = self.action(owner, tasks[0]["id"], action, content)
-            if action == "modify": return self.approval_text(task)
-            if action == "cancel": return "已取消下达。"
-            return {"sent": "任务已下达。", "failed": "下达失败，已暂停。",
-                    "uncertain": "发送结果不确定，已暂停。请先确认同事是否收到。"
-                    }.get(task["delivery_status"], "已批准，正在处理下达。")
-        except DelegationError as exc: return str(exc)
+    def owner_command(self, owner, text, userid=None):
+        from services.delegation_commands import owner_command
+        return owner_command(self, owner, text, userid)
 
     def colleague_reply(self, owner, userid, text, msg_id=None):
-        cols = self.query("colleagues", owner).eq("wecom_userid", userid).limit(1).execute().data
-        if not cols: return None
-        state, body, code = classify_reply(text)
-        tasks = [t for t in self.rows("delegated_tasks", owner) if t["colleague_id"] == cols[0]["id"]
-                 and (t["delivery_status"] == "sent" or (code and t["delivery_status"] in ("sending", "uncertain")
-                      and t["approval_status"] == "approved"))
-                 and t["task_status"] not in ("completed", "cancelled")
-                 and (code is None or t["approval_code"] == code)]
-        if len(tasks) != 1: return "请带上任务短码回复，例如：1024 收到。" if tasks or code else None
-        task = tasks[0]
+        from services.delegation_commands import colleague_reply
+        return colleague_reply(self, owner, userid, text, msg_id)
+
+    def record_colleague_reply(self, owner, userid, task_id, state, body, msg_id,
+                               expected_version, receipt_proof):
+        task = self.get_task(owner, task_id)
+        colleague = self.colleague(task)
+        if colleague["wecom_userid"].lower() != userid.lower():
+            raise DelegationError("当前账号无权回复这条任务")
+        if task["version"] != expected_version or task["task_status"] in ("completed", "cancelled"):
+            raise DelegationError("任务状态已变化，请重新选择")
+        if task["delivery_status"] != "sent":
+            if (not receipt_proof or task["approval_status"] != "approved"
+                    or task["delivery_status"] not in ("sending", "uncertain")):
+                raise DelegationError("任务尚未成功下达，请先明确核对收到状态")
         delayed_due = None
         if state == "delayed":
             from services.delegation_parser import parse_delay
@@ -220,13 +223,14 @@ class DelegationService:
                                         **({"due_at": delayed_due.isoformat()} if delayed_due else {}),
                                         **({"delivery_status": "sent", "sent_at": self.clock().isoformat()}
                                            if task["delivery_status"] != "sent" else {})))
-        if not changed: return "状态正在更新，请稍后再回复。"
+        if not changed:
+            raise DelegationError("任务状态正在变化，请重新选择")
         self.event(changed, "colleague_reply", body, "colleague")
-        self.notify(changed, f"【委派进展｜{task['approval_code']}】\n{cols[0]['name']}：{body}",
+        self.notify(changed, f"【委派进展】\n{colleague['name']}：{body}",
                     f"reply:{msg_id or changed['version']}")
         self.drain(owner)
         if state == "delayed" and not delayed_due:
-            return "已记录延期并同步负责人，请回复：延期到具体日期和时间。"
+            return "已记录延期并同步负责人，请回复：任务延期到具体日期和时间。"
         return "已记录，并同步给负责人。"
 
     def scan(self, owner):
@@ -239,7 +243,7 @@ class DelegationService:
                     changed = self.change(task, dict(approval_status="expired", paused_reason="批准请求已过期"))
                     if changed:
                         self.event(changed, "expired")
-                        self.notify(changed, f"【委派过期｜{task['approval_code']}】未获批准，任务没有下达。", "expired")
+                        self.notify(changed, f"【委派过期】未获批准，任务没有下达。", "expired")
                     continue
                 if approval == "scheduled" and as_time(task["scheduled_at"]) <= now:
                     changed = self.change(task, dict(approval_status="pending_approval"))
@@ -253,12 +257,16 @@ class DelegationService:
                     self.enqueue(task, "dispatch", self.colleague(task)["wecom_userid"], self.dispatch_text(task))
                 if task["delivery_status"] == "sent" and followup_due(task, now):
                     self.enqueue(task, "followup", self.colleague(task)["wecom_userid"],
-                                 f"【AI秘书跟进｜{task['approval_code']}】\n{task['content']}\n请回复：{task['approval_code']} 收到 / 完成 / 进展……",
+                                 self.followup_text(task),
                                  str(task["followup_count"] + 1))
             except DelegationError as exc: self.change(task, dict(paused_reason=str(exc)))
         self.drain(owner)
 
     def valid_outbound(self, row, task):
+        if row["kind"] in ("approval", "approval_reminder", "notice"):
+            owner_userid = self.owner_lookup(task["owner_user_id"])
+            if not owner_userid or owner_userid.lower() != str(row["recipient_userid"]).lower():
+                return False
         if row["kind"] in ("dispatch", "followup"):
             try:
                 if self.colleague(task)["wecom_userid"] != row["recipient_userid"]: return False
@@ -290,7 +298,7 @@ class DelegationService:
                         changed = self.change(task, dict(delivery_status="failed", paused_reason="接收同事已停用，未下达"))
                         if changed:
                             self.event(changed, "dispatch_cancelled", "接收同事已停用")
-                            self.notify(changed, f"【委派异常｜{task['approval_code']}】接收同事已停用，任务未下达。", "colleague-disabled")
+                            self.notify(changed, f"【委派异常】接收同事已停用，任务未下达。", "colleague-disabled")
                     self.update("delegation_outbox", owner, row["id"], dict(status="cancelled", applied=True))
                     continue
                 claimed = (self.db.table("delegation_outbox").update(dict(status="sending", attempts=row["attempts"] + 1,
@@ -298,8 +306,17 @@ class DelegationService:
                            .eq("status", "pending").execute().data)
                 if not claimed: continue
                 row = claimed[0]
+                task = self.get_task(owner, row["task_id"])
+                if not self.valid_outbound(row, task):
+                    if row["kind"] == "dispatch" and task["delivery_status"] == "sending":
+                        changed = self.change(task, dict(delivery_status="failed", paused_reason="接收同事已停用，未下达"))
+                        if changed:
+                            self.event(changed, "dispatch_cancelled", "接收同事已停用")
+                            self.notify(changed, "【委派异常】接收同事已停用，任务未下达。", "colleague-disabled")
+                    self.update("delegation_outbox", owner, row["id"], dict(status="cancelled", applied=True))
+                    continue
                 try:
-                    result = self.sender(row["recipient_userid"], row["content"])
+                    result = self.sender(row["recipient_userid"], self.outbound_text(row, task))
                     status = result if result in ("sent", "failed", "uncertain") else "uncertain"
                 except Exception: status = "uncertain"
                 if status == "failed" and row["attempts"] < 2: status = "pending"
@@ -342,15 +359,15 @@ class DelegationService:
             if not changed: return
             self.event(changed, f"{kind}_{status}", updates.get("paused_reason") or "")
             if status != "sent":
-                self.notify(changed, f"【委派异常｜{task['approval_code']}】{updates['paused_reason']}，已暂停自动发送。",
+                self.notify(changed, f"【委派异常】{updates['paused_reason']}，已暂停自动发送。",
                             row["operation_key"] + ":error")
             elif kind == "dispatch":
-                self.notify(changed, f"【已下达｜{task['approval_code']}】{task['content']}", "dispatched")
+                self.notify(changed, f"【已下达】{task['content']}", "dispatched")
             elif kind == "followup" and changed["task_status"] == "unresponsive":
-                self.notify(changed, f"【委派未回复｜{task['approval_code']}】已催办两次，仍未收到回复，自动催办已暂停。", "unresponsive")
+                self.notify(changed, f"【委派未回复】已催办两次，仍未收到回复，自动催办已暂停。", "unresponsive")
         # 出站成功后本地状态写入和通知入队之间崩溃，也能补齐负责人回执。
         if status == "sent" and kind == "dispatch" and self.get_task(owner, task["id"])["delivery_status"] == "sent":
-            self.notify(task, f"【已下达｜{task['approval_code']}】{task['content']}", "dispatched")
+            self.notify(task, f"【已下达】{task['content']}", "dispatched")
         if status == "sent" and kind == "followup" and self.get_task(owner, task["id"])["task_status"] == "unresponsive":
-            self.notify(task, f"【委派未回复｜{task['approval_code']}】已催办两次，自动催办已暂停。", "unresponsive")
+            self.notify(task, f"【委派未回复】已催办两次，自动催办已暂停。", "unresponsive")
         self.update("delegation_outbox", owner, row["id"], dict(applied=True))

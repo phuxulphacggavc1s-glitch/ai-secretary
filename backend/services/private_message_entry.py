@@ -1,13 +1,13 @@
 """独立企业微信私人留言入口，正文不能回退到负责人业务。"""
-from threading import RLock
 
 from config import WECOM_PRIVATE_MESSAGES_ENABLED
 from database import supabase
 from services.private_message_policy import PrivateMessageError, as_time, is_private_request, parse_command
 from services.private_message_service import PrivateMessageService
 from services.wecom_delivery import bound_user_ids
+from services.wecom_menu import MENU_LOCK, delegation_context_active
 
-_lock = RLock()
+_lock = MENU_LOCK
 
 
 def get_service():
@@ -35,13 +35,15 @@ def find_actor(service, userid):
 
 
 def delegation_pending(service, space, userid):
-    colleagues = (service.db.table("colleagues").select("id").eq("owner_user_id", space)
-                  .eq("wecom_userid", userid).eq("active", True).limit(10).execute().data)
+    rows = (service.db.table("colleagues").select("id,wecom_userid").eq("owner_user_id", space)
+            .eq("active", True).limit(1000).execute().data)
+    colleagues = [p for p in rows if p["wecom_userid"].lower() == userid.lower()]
     if not colleagues:
         return False
     tasks = (service.db.table("delegated_tasks").select("id").eq("owner_user_id", space)
-             .in_("colleague_id", [p["id"] for p in colleagues]).eq("delivery_status", "sent")
-             .eq("task_status", "awaiting_reply").limit(1).execute().data)
+             .in_("colleague_id", [p["id"] for p in colleagues]).eq("approval_status", "approved")
+             .in_("delivery_status", ["sent", "sending", "uncertain"])
+             .neq("task_status", "completed").neq("task_status", "cancelled").limit(1).execute().data)
     return bool(tasks)
 
 
@@ -100,6 +102,9 @@ def handle_private_message(userid, text, msg_id):
                 context = service.context(space, actor)
                 if not context:
                     return False
+                if (as_time(context["expires_at"]) <= service.clock()
+                        and delegation_context_active(service.db, space, userid, service.clock())):
+                    return False
             elif not service.candidates(space, actor, "ack"):
                 return False
         try:
@@ -111,7 +116,7 @@ def handle_private_message(userid, text, msg_id):
                 except Exception:
                     conflict = True
                 if conflict:
-                    reply(userid, "你同时有待回复委派。确认私人留言请回复“留言收到”；委派请带任务短码，避免确认错对象。")
+                    reply(userid, "你同时有待回复任务。确认私人留言请回复“留言收到”；任务请回复“任务收到”，避免确认错对象。")
                     finish(service, space, userid, msg_id, "processed")
                     return True
             response = service.handle(space, actor, text)
