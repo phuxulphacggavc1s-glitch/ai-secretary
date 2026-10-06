@@ -12,6 +12,7 @@ from services.wecom_delivery import resolve_supabase_user_id, send_app_text
 from services.wecom_inbound import mark_inbound_failed, mark_inbound_processed, reserve_inbound_message
 from services.wecom_reply import process_pending_task_reply
 from services.delegation_entry import handle_delegation_message
+from services.private_message_entry import handle_private_message
 
 
 DEFAULT_TIMEZONE = "Asia/Shanghai"
@@ -60,9 +61,12 @@ def _create_task_from_parsed(user_id: str, parsed: dict) -> dict | None:
 
 def handle_incoming_text(wecom_userid: str, text: str, msg_id: str) -> None:
     """后台任务：处理企业微信消息，并把秘书回复推回去。"""
-    text = (text or "").strip()[:500]
+    text = (text or "").strip()
     if not text:
         return
+    if handle_private_message(wecom_userid, text, msg_id):
+        return
+    text = text[:500]
 
     user_id = resolve_supabase_user_id(wecom_userid)
     if handle_delegation_message(wecom_userid, text, msg_id):

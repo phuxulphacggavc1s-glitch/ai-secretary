@@ -15,6 +15,7 @@ from services.followup import escalate_s_level, scan_followups
 from services.memory import refresh_all_memories
 from services.secretary import push_morning_briefing
 from services.delegation_entry import scan_delegations
+from services.private_message_entry import scan_private_messages
 
 app = FastAPI(title="AI Secretary API")
 app.state.limiter = limiter
@@ -59,6 +60,7 @@ def health():
 
 if is_supabase_configured():
     scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
+    scheduler.add_job(scan_private_messages, "interval", minutes=1, id="private_messages", replace_existing=True, max_instances=1, coalesce=True)
     scheduler.add_job(scan_delegations, "interval", minutes=1, id="delegations", replace_existing=True, max_instances=1, coalesce=True)
     scheduler.add_job(scan_followups, "interval", minutes=1, id="followups", replace_existing=True)
     scheduler.add_job(push_morning_briefing, "cron", hour=8, minute=0, id="morning_briefing", replace_existing=True)

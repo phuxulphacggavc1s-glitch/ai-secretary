@@ -27,3 +27,6 @@ WECOM_APP_USER_MAP = os.getenv("WECOM_APP_USER_MAP", "{}")
 
 # 数据库升级并完成测试后开启，默认不向同事发送。
 WECOM_DELEGATION_ENABLED = os.getenv("WECOM_DELEGATION_ENABLED", "false").lower() == "true"
+
+# 私人留言有独立成员白名单，不使用负责人映射授权同事。
+WECOM_PRIVATE_MESSAGES_ENABLED = os.getenv("WECOM_PRIVATE_MESSAGES_ENABLED", "false").lower() == "true"

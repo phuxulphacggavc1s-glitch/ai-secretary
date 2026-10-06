@@ -74,9 +74,12 @@ def get_access_token(force_refresh: bool = False) -> str | None:
                 time.time() + int(result.get("expires_in", 7200)) - 200
             )
             return _token_cache["token"]
-        print(f"wecom gettoken failed: errcode={result.get('errcode')}")
-    except Exception as exc:
-        print(f"wecom gettoken error: {exc}")
+        error_code = result.get("errcode")
+        if type(error_code) is not int or not -1 <= error_code <= 99999999:
+            error_code = "INVALID_RESPONSE"
+        print(f"wecom gettoken failed: errcode={error_code}")
+    except Exception:
+        print("wecom gettoken error: TOKEN_REQUEST_FAILED")
     return None
 
 
