@@ -254,3 +254,60 @@ def test_full_callback_menu_switches_cannot_confirm_wrong_business(env, monkeypa
     wecom_app.handle_incoming_text("Owner", "1", "choose-private")
     assert sum(m["status"] == "sent" for m in db.rows["private_messages"]) == 1
     assert sum(t["approval_status"] == "approved" for t in db.rows["delegated_tasks"]) == 1
+
+def test_punctuated_confirmation_uses_private_flow_once_without_legacy(env, monkeypatch):
+    service, db, sent, replies, current, _ = env
+    monkeypatch.setattr(wecom_app, "handle_private_message", entry.handle_private_message)
+    for name in ("handle_delegation_message", "reserve_inbound_message", "chat"):
+        monkeypatch.setattr(wecom_app, name, lambda *a: pytest.fail("confirmation entered legacy flow"))
+    wecom_app.handle_incoming_text("A", "1分钟后给乙发消息：通知他4点下班。", "punct-draft")
+    wecom_app.handle_incoming_text("A", "确认发送。", "punct-confirm")
+    wecom_app.handle_incoming_text("A", "确认发送。", "punct-confirm")
+    assert len(db.rows["private_messages"]) == 1
+    assert db.rows["private_messages"][0]["status"] == "scheduled"
+    assert "已确认" in replies[-1][1]
+    assert not sent
+    current[0] += timedelta(minutes=1)
+    service.scan(SPACE)
+    service.scan(SPACE)
+    bodies = [body for user, body in sent if user == "B"]
+    assert len(bodies) == 1
+    assert "通知他4点下班。" in bodies[0]
+
+
+@pytest.mark.parametrize("text", ["收到。", "收到!", "收到 。"])
+def test_punctuated_bare_ack_keeps_task_conflict_protection(env, monkeypatch, text):
+    service, db, _, replies, _, people = env
+    service.handle(SPACE, people[1], "立即给乙发消息：正文")
+    service.handle(SPACE, people[1], "确认发送")
+    monkeypatch.setattr(entry, "delegation_pending", lambda *args: True)
+    assert entry.handle_private_message("B", text, "punct-ack")
+    assert "任务收到" in replies[-1][1]
+    assert not db.rows["private_messages"][0]["acknowledged_at"]
+
+
+def test_disabled_punctuated_confirmation_never_falls_back(env, monkeypatch):
+    _, db, sent, replies, _, _ = env
+    monkeypatch.setattr(entry, "WECOM_PRIVATE_MESSAGES_ENABLED", False)
+    assert entry.handle_private_message("A", "确认发送。", "disabled-confirm")
+    assert "尚未启用" in replies[-1][1]
+    assert not db.rows.get("private_message_inbound")
+    assert not sent
+
+
+def test_question_is_not_send_authorization(env):
+    service, db, sent, _, _, people = env
+    service.handle(SPACE, people[1], "立即给乙发消息：正文")
+    assert not entry.handle_private_message("A", "确认发送？", "question")
+    assert db.rows["private_messages"][0]["status"] == "draft"
+    assert not sent
+
+
+def test_punctuated_confirmation_does_not_bypass_past_send_time(env):
+    service, db, sent, replies, current, _ = env
+    entry.handle_private_message("A", "1分钟后给乙发消息：正文", "old-draft")
+    current[0] += timedelta(minutes=2)
+    assert entry.handle_private_message("A", "确认发送。", "late-confirm")
+    assert "时间已过去" in replies[-1][1]
+    assert db.rows["private_messages"][0]["status"] == "draft"
+    assert not sent

@@ -218,8 +218,9 @@ def parse_command(text):
     exact = {"确认发送": "confirm", "确认留言": "confirm", "我的留言": "list",
              "查看留言": "view", "取消留言": "cancel", "取消发送": "cancel",
              "留言收到": "ack", "收到": "ack"}
-    if text in exact:
-        return {"operation": exact[text]}
+    exact_text = text[:-1].rstrip() if text.endswith(("。", ".", "！", "!")) else text
+    if exact_text in exact:
+        return {"operation": exact[exact_text]}
     for prefix, operation in (("修改留言", "modify"), ("改时留言", "retime"), ("回复留言", "reply"), ("回复", "reply")):
         match = re.fullmatch(re.escape(prefix) + r"(?:[，,](.+?))?[：:](.+)", text, re.S)
         if match:
@@ -233,7 +234,7 @@ def parse_command(text):
 def is_private_request(text):
     text = str(text or "").strip()
     command = parse_command(text)
-    if command and text != "收到":
+    if command and not (command["operation"] == "ack" and re.fullmatch(r"收到\s*[。.!！]?", text)):
         return True
     if re.match(r"^\d{4}\s", text) or is_formal_task_request(text):
         return False

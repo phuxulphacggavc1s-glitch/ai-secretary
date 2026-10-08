@@ -110,7 +110,7 @@ def handle_private_message(userid, text, msg_id):
         try:
             if not reserve(service, space, userid, msg_id):
                 return True
-            if text == "收到":
+            if not strong and command and command["operation"] == "ack":
                 try:
                     conflict = delegation_pending(service, space, userid)
                 except Exception:

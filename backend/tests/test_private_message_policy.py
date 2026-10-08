@@ -222,3 +222,36 @@ def test_reverse_arrange_task_word_order_is_formal():
 ])
 def test_hyphenated_or_slashed_body_numbers_are_not_time(text, body):
     assert parse_request(text, PEOPLE, NOW)["content"] == body
+
+@pytest.mark.parametrize("command, operation", [
+    ("确认发送", "confirm"), ("确认留言", "confirm"), ("我的留言", "list"),
+    ("查看留言", "view"), ("取消留言", "cancel"), ("取消发送", "cancel"),
+    ("留言收到", "ack"),
+])
+@pytest.mark.parametrize("suffix", ["。", ".", "！", "!"])
+def test_exact_private_commands_accept_one_sentence_ending_mark(command, operation, suffix):
+    assert parse_command(command + suffix) == {"operation": operation}
+    assert is_private_request(command + suffix)
+
+
+def test_confirmation_with_space_before_sentence_mark():
+    assert parse_command("  确认发送 。  ") == {"operation": "confirm"}
+
+
+@pytest.mark.parametrize("text", [
+    "确认发送？", "确认发送吗", "不要确认发送。", "已经确认发送。",
+    "确认发送。。。", "确认发送...", "确认发送，",
+])
+def test_questions_negations_and_ellipsis_are_not_confirmation(text):
+    assert parse_command(text) is None
+
+
+@pytest.mark.parametrize("suffix", ["。", ".", "！", "!"])
+def test_bare_ack_with_punctuation_remains_ambiguous(suffix):
+    assert parse_command("收到" + suffix) == {"operation": "ack"}
+    assert not is_private_request("收到" + suffix)
+
+
+@pytest.mark.parametrize("text", ["修改留言：新正文。", "回复留言：确认发送！"])
+def test_command_body_punctuation_is_preserved(text):
+    assert parse_command(text)["content"] == text.split("：", 1)[1]
